@@ -26,6 +26,9 @@ dbAccount = os.getenv("GEM_P5_DB_ACCOUNT")
 
 def main():
    #Reminder: in the DB the DeltaV between pins are saved, not the V from ground
+   #-------------KIND OF MONITOR FLAG----------------------------------------
+   monitorFlag = "HV"
+   #monitorFlag = "LV"
    #-------------FILE WITH CHOSEN CHAMBERS------------------------------------
    chambersFileName = "P5GEMChosenChambers_sliceTest_HV.txt"
 
@@ -312,6 +315,320 @@ def main():
    print("ChosenIDs")
    for chIdx in range(len(chamberList)):
       print(chamberList[chIdx], allChosenChamberIDs[chIdx])
+
+   #--------------RETRIEVE DATA FOR HV--------------------------------------------
+   #table CMS_GEM_PVSS_COND.FWCAENCHANNELA1515 for HV
+   #table CMS_GEM_PVSS_COND.FWCAENCHANNEL for LV
+
+   #for each chamber I retrive data and then if one is NULL I don't save it
+   #HV TABLE
+   #describe CMS_GEM_PVSS_COND.FWCAENCHANNELA1515;
+   # Name					   Null?    Type
+   # ----------------------------------------- -------- ----------------------------
+   #UPDATEID				   NOT NULL NUMBER(38)
+   #DPID					    NUMBER
+   #CHANGE_DATE					    TIMESTAMP(9)
+   #DPE_STATUS					    NUMBER
+   #DPE_POSITION				    NUMBER
+   #ACTUAL_IMONREAL				    NUMBER
+   #ACTUAL_IMON					    NUMBER
+   #ACTUAL_VMON					    NUMBER
+   #ACTUAL_STATUS				    NUMBER
+   #ACTUAL_ISON					    NUMBER
+   #ACTUAL_TEMP					    NUMBER
+   #ACTUAL_IMONDET 				    NUMBER
+   #SETTINGS_OFFORDER				    NUMBER
+   #SETTINGS_ONORDER				    NUMBER
+
+   #LV TABLE
+   #SQL> describe CMS_GEM_PVSS_COND.FWCAENCHANNEL;
+   #Name					   Null?    Type
+   #----------------------------------------- -------- ----------------------------
+   #UPDATEID				   NOT NULL NUMBER(38)
+   #DPID					    NUMBER
+   #CHANGE_DATE					    TIMESTAMP(9)
+   #DPE_STATUS					    NUMBER
+   #DPE_POSITION				    NUMBER
+   #ACTUAL_VMON					    NUMBER
+   #ACTUAL_ISON					    NUMBER
+   #ACTUAL_IMON					    NUMBER
+   #ACTUAL_OVC					    NUMBER
+   #ACTUAL_TRIP					    NUMBER
+   #ACTUAL_STATUS				    NUMBER
+   #ACTUAL_TEMP					    NUMBER
+   #ACTUAL_VCON					    NUMBER
+   #ACTUAL_TEMPERATUREERROR			    NUMBER
+   #ACTUAL_POWERFAIL				    NUMBER
+
+   if monitorFlag == "HV": 
+      tableData = "CMS_GEM_PVSS_COND.FWCAENCHANNELA1515"
+   if monitorFlag == "LV":
+      tableData = "CMS_GEM_PVSS_COND.FWCAENCHANNEL"
+
+   stringWhatRetriveList     = ["imon", "vmon", "smon", "ison", "temp"]
+   for chIdx in range(len(chamberList)):
+      #create the first level of directories: one for each chamber
+      chamberNameRootFile = chamberList[chIdx].replace("-", "_")
+      firstDir = f1.mkdir(chamberNameRootFile)
+      firstDir.cd()
+
+      #put a counter to identify which channel I am looking to 
+      #IF I CALL A CHAMBER I AM OBLIGED TO LOOK ALL THE SEVEN CHANNELS
+      channelName = ["G3Bot", "G3Top", "G2Bot", "G2Top", "G1Bot", "G1Top", "Drift"]
+
+      #for each chnnel of a chamber ther eis only one ID
+      for channelIDIdx in range(len(allChosenChamberIDs[chIdx])):
+         imonData = [] #store two Dates and Imon in pair (0th Date in millisecond from the first element stored, 1st Date as wanted by root, 2nd Imon)
+         vmonData = [] #store two Dates and Vmon in pair
+         smonData = [] #store two Dates and Status in pair
+         isonData = [] #store two Dates and Ison in pair
+         tempData = [] #store two Dates and Temp in pair
+
+         queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP, ACTUAL_IMONREAL from " + tableData + " where DPID = " + str(allChosenChamberIDs[chIdx][channelIDIdx]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
+         #print( queryAll ) 
+
+         #queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from CMS_GEM_PVSS_COND.FWCAENCHANNELA1515 where  DPID = 55 and CHANGE_DATE > to_date( '2018-04-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date ( '2018-05-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"
+
+         cur.execute(queryAll)
+         curAllData = cur
+         contData = 0
+         for result in curAllData:
+            #print (result)
+            dateElem = result[0]
+            imonElem = result[1]
+            vmonElem = result[2]
+            smonElem = result[3]
+            isonElem = result[4] #it can be only 0 or 1
+            tempElem = result[5] #in celcius degrees
+            imonRealElem = result[6]
+
+            #take the first Date
+            if contData == 0:
+               startTs = result[0]
+               
+            tot_secondsDate = (dateElem - startTs).total_seconds()
+            #print("tot_secondsDate:", tot_secondsDate) #('tot_secondsDate:', 16512.532)
+
+            #convert dateElem in a usable format
+            dateElemStr = str(dateElem)  #2017-04-01 00:00:32.439000 
+            #print("dateElemStr", dateElemStr)
+            if (dateElemStr.find(".") != -1): #if dot found
+               dotIdx = dateElemStr.index(".")
+               dateNoMicro = dateElemStr[:dotIdx]
+               micro = dateElemStr[dotIdx+1:] 
+            else:                             #if dot not found
+               dateNoMicro = dateElemStr
+               micro = "000000"
+
+            da1 = ROOT.TDatime( dateNoMicro )
+            convertedDate = da1.Convert()            
+
+            floatMicro = "0." + micro
+            dateElemSQL = convertedDate + float(floatMicro)
+
+            #ATTENTION: I use ACTUAL_IMONREAL only if I have no info from ACTUAL_IMON
+            if imonElem is not None:       #imon
+               tripleList = [ tot_secondsDate, dateElemSQL, imonElem ]
+               imonData.append( tripleList )
+            else:
+               if imonRealElem is not None:
+                  tripleList = [ tot_secondsDate, dateElemSQL, imonRealElem ]
+                  imonData.append( tripleList )
+            if vmonElem is not None:       #vmon
+               tripleList = [ tot_secondsDate, dateElemSQL, vmonElem ]
+               vmonData.append( tripleList )
+            if smonElem is not None:       #smon          
+               tripleList = [ tot_secondsDate, dateElemSQL, smonElem ]
+               smonData.append( tripleList )
+            if isonElem is not None:       #ison
+               tripleList = [ tot_secondsDate, dateElemSQL, isonElem ]
+               isonData.append( tripleList )
+            if tempElem is not None:       #temp
+               tripleList = [ tot_secondsDate, dateElemSQL, tempElem ]
+               tempData.append( tripleList )
+       
+            contData = contData + 1
+
+         #print("imonData", imonData)
+         #print("vmonData", vmonData)
+         #print("smonData", smonData)
+         #print("isonData", isonData)
+         #print("tempData", tempData)
+
+         print( chamberList[chIdx]+ ": Not sorted lists created: WAIT PLEASE!!")
+
+         #----------------SORT DATA-------------------------------------------------------
+         #after collecting all data (we are inside the loop over chambers)
+         #reorder data by date, the may not be in the correct time order
+         #sort data in each of the seven channels
+
+         imonSortList = sorted(imonData, key=lambda element: element[0]) #reorder using the internal list of imonData( element[0] is tot_secondsDate )
+         vmonSortList = sorted(vmonData, key=lambda element: element[0])
+         smonSortList = sorted(smonData, key=lambda element: element[0])
+         isonSortList = sorted(isonData, key=lambda element: element[0])
+         tempSortList = sorted(tempData, key=lambda element: element[0])
+      
+         for idx in range(len(imonSortList)):
+            now = imonSortList[idx][0]
+            after = imonSortList[idx][0]
+            if now > after:
+               print("ERROR: sort error in imonSortList")
+
+         for idx in range(len(vmonSortList)):
+            now = vmonSortList[idx][0]
+            after = vmonSortList[idx][0]
+            if now > after:
+               print("ERROR: sort error in vmonSortList")
+
+         for idx in range(len(smonSortList)):
+            now = smonSortList[idx][0]
+            after = smonSortList[idx][0]
+            if now > after:
+               print("ERROR: sort error in smonSortList")
+
+         for idx in range(len(isonSortList)):
+            now = isonSortList[idx][0]
+            after = isonSortList[idx][0]
+            if now > after:
+               print("ERROR: sort error in isonSortList")
+
+         for idx in range(len(tempSortList)):
+            now = tempSortList[idx][0]
+            after = tempSortList[idx][0]
+            if now > after:
+               print("ERROR: sort error in tempSortList")
+      
+         print("Lists sorted: WAIT PLAESE!!")
+
+         #empty not sortedLists
+         imonData = []
+         vmonData = []
+         smonData = []
+         isonData = []
+         tempData = []
+
+         print("imonData empty", imonData)
+      
+         for idxElem in range(len(imonSortList)):
+            secondAndThird = []
+            secondAndThird.append(imonSortList[idxElem][1])
+            secondAndThird.append(imonSortList[idxElem][2])
+            imonData.append(secondAndThird)
+
+         for idxElem in range(len(vmonSortList)):
+            secondAndThird = []
+            secondAndThird.append(vmonSortList[idxElem][1])
+            secondAndThird.append(vmonSortList[idxElem][2])
+            vmonData.append(secondAndThird)
+
+         for idxElem in range(len(smonSortList)):
+            secondAndThird = []
+            secondAndThird.append(smonSortList[idxElem][1])
+            secondAndThird.append(smonSortList[idxElem][2])
+            smonData.append(secondAndThird)
+
+         for idxElem in range(len(isonSortList)):
+            secondAndThird = []
+            secondAndThird.append(isonSortList[idxElem][1])
+            secondAndThird.append(isonSortList[idxElem][2])
+            isonData.append(secondAndThird)
+
+         for idxElem in range(len(tempSortList)):
+            secondAndThird = []
+            secondAndThird.append(tempSortList[idxElem][1])
+            secondAndThird.append(tempSortList[idxElem][2])
+            tempData.append(secondAndThird)
+         
+         print("Sorted lists filled!")
+   
+         #----------------CREATE HISTOGRAMS----------------------------------------------
+         if monitorFlag == "HV":
+            IMin = -20   #uA 
+            IMax = 20    #uA
+            NBinImon = int(IMax-IMin)
+            IUnitMeasure = "I [uA]"
+  
+            VMin = -50   #V
+            VMax = 800
+            NBinVmon = int((VMax-VMin)/10)
+ 
+            StatusMin = 0
+            StatusMax = 4100
+            NBinStatus = StatusMax
+ 
+            IsonMin = -1
+            IsonMax = 3
+            NBinIson = int(IsonMax-IsonMin)
+ 
+            TempMin = 0  #celsius
+            TempMax = 100
+            NBinTemp = TempMax
+
+         if monitorFlag == "LV":
+            IMin = -10  #A
+            IMax = 10
+            NBinImon = int(IMax-IMin)
+            IUnitMeasure = "I [A]"
+    
+            VMin = -50  #V
+            VMax = 200  #V
+            NBinVmon = int((VMax-VMin)/10)
+    
+            StatusMin = 0
+            StatusMax = 65536
+            NBinStatus = StatusMax
+            
+            IsonMin = -1
+            IsonMax = 3
+            NBinIson = int(IsonMax-IsonMin)
+    
+            TempMin = 0 #celsius
+            TempMax = 100
+            NBinTemp = TempMax
+    
+         #declare histograms
+         chamberNameRootFile = chamberList[chIdx].replace("-", "_")
+
+         Imonh1 = ROOT.TH1F(monitorFlag+"_ImonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_ImonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinImon, IMin, IMax)	
+         Vmonh1 = ROOT.TH1F(monitorFlag+"_VmonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_VmonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinVmon, VMin, VMax)	
+         Smonh1 = ROOT.TH1F(monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinStatus, StatusMin, StatusMax)	
+         Isonh1 = ROOT.TH1F(monitorFlag+"_IsonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_IsonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinIson, IsonMin, IsonMax)	
+         Temph1 = ROOT.TH1F(monitorFlag+"_TempChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_TempChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinTemp, TempMin, TempMax)	
+      
+         #axis titles
+         Imonh1.GetXaxis().SetTitle(IUnitMeasure)
+         Imonh1.GetYaxis().SetTitle("counts")
+         Vmonh1.GetXaxis().SetTitle("V [V]")
+         Vmonh1.GetYaxis().SetTitle("counts")
+         Smonh1.GetXaxis().SetTitle("Status code")
+         Smonh1.GetYaxis().SetTitle("counts")
+         Isonh1.GetXaxis().SetTitle("Ison status (0=OFF, 1=ON)")
+         Isonh1.GetYaxis().SetTitle("counts")
+         Temph1.GetXaxis().SetTitle("Temperature [Celsius degrees]")
+         Temph1.GetYaxis().SetTitle("counts")
+
+         #fill histograms: remember thet each row of Data has (Date, Value)
+         for idxPoint in range(len(imonData)):
+            Imonh1.Fill(imonData[idxPoint][1])
+ 
+         for idxPoint in range(len(vmonData)):
+            Vmonh1.Fill(vmonData[idxPoint][1])
+ 
+         for idxPoint in range(len(smonData)):
+            Smonh1.Fill(smonData[idxPoint][1])
+ 
+         for idxPoint in range(len(isonData)):
+            Isonh1.Fill(isonData[idxPoint][1])
+ 
+         for idxPoint in range(len(tempData)):
+            Temph1.Fill(tempData[idxPoint][1])
+
+         #write TH1
+         Imonh1.Write()
+         Vmonh1.Write()
+         Smonh1.Write()
+         Isonh1.Write()
+         Temph1.Write()
 
 
 
