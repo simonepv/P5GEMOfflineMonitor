@@ -507,8 +507,6 @@ def main():
          isonData = []
          tempData = []
 
-         print("imonData empty", imonData)
-      
          for idxElem in range(len(imonSortList)):
             secondAndThird = []
             secondAndThird.append(imonSortList[idxElem][1])
@@ -524,7 +522,7 @@ def main():
          for idxElem in range(len(smonSortList)):
             secondAndThird = []
             secondAndThird.append(smonSortList[idxElem][1])
-            secondAndThird.append(smonSortList[idxElem][2])
+            secondAndThird.append(int(smonSortList[idxElem][2]))
             smonData.append(secondAndThird)
 
          for idxElem in range(len(isonSortList)):
@@ -629,6 +627,176 @@ def main():
          Smonh1.Write()
          Isonh1.Write()
          Temph1.Write()
+
+         #--------------------CREATE TGRAPHS-------------------------------------------
+         #to create the TGraph I have to pass two lists: one with times and the other with values
+         imonData_dates = array ( 'd' )
+         vmonData_dates = array ( 'd' )
+         smonData_dates = array ( 'd' )
+         isonData_dates = array ( 'd' )
+         tempData_dates = array ( 'd' )
+
+         imonData_values = array ( 'd' )
+         vmonData_values = array ( 'd' )
+         smonData_values = array ( 'd' )
+         isonData_values = array ( 'd' )
+         tempData_values = array ( 'd' )
+
+         for imonIdx in range(len(imonData)):
+            imonData_dates.append(imonData[imonIdx][0])
+            imonData_values.append(imonData[imonIdx][1])
+
+         for vmonIdx in range(len(vmonData)):
+            vmonData_dates.append(vmonData[vmonIdx][0])
+            vmonData_values.append(vmonData[vmonIdx][1])
+
+         for smonIdx in range(len(smonData)):
+            smonData_dates.append(smonData[smonIdx][0])
+            smonData_values.append(smonData[smonIdx][1])
+
+         for isonIdx in range(len(isonData)):
+            isonData_dates.append(isonData[isonIdx][0])
+            isonData_values.append(isonData[isonIdx][1])
+
+         for tempIdx in range(len(tempData)):
+            tempData_dates.append(tempData[tempIdx][0])
+            tempData_values.append(tempData[tempIdx][1])
+
+         #in case there is nothing the TGraph gives error: put a dummy value
+         dummyNumber = -999999999
+         dummyPair = [0, dummyNumber]
+         if len(imonData)==0: 
+            imonData_dates.append(0)
+            imonData_values.append(dummyNumber)
+            imonData.append( dummyPair ) 
+         if len(vmonData)==0:
+            vmonData_dates.append(0)
+            vmonData_values.append(dummyNumber) 
+            vmonData.append( dummyPair ) 
+         if len(smonData)==0:
+            smonData_dates.append(0)
+            smonData_values.append(dummyNumber) 
+            smonData.append( dummyPair ) 
+         if len(isonData)==0:
+            isonData_dates.append(0)
+            isonData_values.append(dummyNumber) 
+            isonData.append( dummyPair ) 
+         if len(tempData)==0:
+            tempData_dates.append(0)
+            tempData_values.append(dummyNumber) 
+            tempData.append( dummyPair ) 
+
+         #declare TGraphs
+         Imontg1 = ROOT.TGraph(len(imonData),imonData_dates,imonData_values)
+         Vmontg1 = ROOT.TGraph(len(vmonData),vmonData_dates,vmonData_values)
+         Smontg1 = ROOT.TGraph(len(smonData),smonData_dates,smonData_values)
+         Isontg1 = ROOT.TGraph(len(isonData),isonData_dates,isonData_values)
+         Temptg1 = ROOT.TGraph(len(tempData),tempData_dates,tempData_values)
+
+         #setting for TGraphs
+         Imontg1.SetLineColor(2)
+         Imontg1.SetLineWidth(4)
+         Imontg1.SetMarkerColor(4)
+         Imontg1.SetMarkerStyle(21)
+         Imontg1.SetMarkerSize(1)
+
+         Vmontg1.SetLineColor(2)
+         Vmontg1.SetLineWidth(4)
+         Vmontg1.SetMarkerColor(4)
+         Vmontg1.SetMarkerStyle(21)
+         Vmontg1.SetMarkerSize(1)
+
+         Smontg1.SetLineColor(2)
+         Smontg1.SetLineWidth(4)
+         Smontg1.SetMarkerColor(4)
+         Smontg1.SetMarkerStyle(21)
+         Smontg1.SetMarkerSize(1)
+
+         Isontg1.SetLineColor(2)
+         Isontg1.SetLineWidth(4)
+         Isontg1.SetMarkerColor(4)
+         Isontg1.SetMarkerStyle(21)
+         Isontg1.SetMarkerSize(1)
+
+         Temptg1.SetLineColor(2)
+         Temptg1.SetLineWidth(4)
+         Temptg1.SetMarkerColor(4)
+         Temptg1.SetMarkerStyle(21)
+         Temptg1.SetMarkerSize(1)
+
+         #TGraph names
+         Imontg1.SetName(monitorFlag+"_ImonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Vmontg1.SetName(monitorFlag+"_VmonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Smontg1.SetName(monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Isontg1.SetName(monitorFlag+"_IsonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Temptg1.SetName(monitorFlag+"_TempChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+
+         #TGraph title
+         Imontg1.SetTitle(monitorFlag+"_ImonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Vmontg1.SetTitle(monitorFlag+"_VmonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Smontg1.SetTitle(monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Isontg1.SetTitle(monitorFlag+"_IsonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Temptg1.SetTitle(monitorFlag+"_TempChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+
+         #Y axis
+         if monitorFlag == "HV":
+            currentBrak = "[uA]"
+         if monitorFlag == "LV":
+            currentBrak = "[A]"
+         Imontg1.GetYaxis().SetTitle("Imon "+chamberNameRootFile+" "+channelName[channelIDIdx]+" "+currentBrak)
+         Vmontg1.GetYaxis().SetTitle("Vmon "+chamberNameRootFile+" "+channelName[channelIDIdx]+" [V]")
+         Smontg1.GetYaxis().SetTitle("Status code "+chamberNameRootFile+" "+channelName[channelIDIdx])
+         Isontg1.GetYaxis().SetTitle("Ison code: 0=ON 1=OFF "+chamberNameRootFile+" "+channelName[channelIDIdx])
+         Temptg1.GetYaxis().SetTitle("Temperature "+chamberNameRootFile+" "+channelName[channelIDIdx]+" [Celsius degrees]")
+
+         #X axis
+         Imontg1.GetXaxis().SetTimeDisplay(1)
+         Vmontg1.GetXaxis().SetTimeDisplay(1)
+         Smontg1.GetXaxis().SetTimeDisplay(1)
+         Isontg1.GetXaxis().SetTimeDisplay(1)
+         Temptg1.GetXaxis().SetTimeDisplay(1)
+
+         Imontg1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+         Vmontg1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+         Smontg1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+         Isontg1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+         Temptg1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+
+         Imontg1.GetXaxis().SetLabelOffset(0.025)
+         Vmontg1.GetXaxis().SetLabelOffset(0.025)
+         Smontg1.GetXaxis().SetLabelOffset(0.025)
+         Isontg1.GetXaxis().SetLabelOffset(0.025)
+         Temptg1.GetXaxis().SetLabelOffset(0.025)
+
+         #Write TGraph
+         Imontg1.Write()
+         Vmontg1.Write()
+         Smontg1.Write()
+         Isontg1.Write()
+         Temptg1.Write()
+
+         #----------------------TREE STATUS------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
