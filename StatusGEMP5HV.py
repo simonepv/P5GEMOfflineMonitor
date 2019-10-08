@@ -402,6 +402,9 @@ def main():
             tempElem = result[5] #in celcius degrees
             imonRealElem = result[6]
 
+            #for the final Tree I need dates in a  string format
+            dateElemString = str(dateElem)
+
             #take the first Date
             if contData == 0:
                startTs = result[0]
@@ -427,6 +430,7 @@ def main():
             dateElemSQL = convertedDate + float(floatMicro)
 
             #ATTENTION: I use ACTUAL_IMONREAL only if I have no info from ACTUAL_IMON
+            #ATTENTION2: for smonData I have 4 elements: the last is the date in string
             if imonElem is not None:       #imon
                tripleList = [ tot_secondsDate, dateElemSQL, imonElem ]
                imonData.append( tripleList )
@@ -438,7 +442,7 @@ def main():
                tripleList = [ tot_secondsDate, dateElemSQL, vmonElem ]
                vmonData.append( tripleList )
             if smonElem is not None:       #smon          
-               tripleList = [ tot_secondsDate, dateElemSQL, smonElem ]
+               tripleList = [ tot_secondsDate, dateElemSQL, smonElem, dateElemString ]
                smonData.append( tripleList )
             if isonElem is not None:       #ison
                tripleList = [ tot_secondsDate, dateElemSQL, isonElem ]
@@ -498,7 +502,7 @@ def main():
             if now > after:
                print("ERROR: sort error in tempSortList")
       
-         print("Lists sorted: WAIT PLAESE!!")
+         print("   Lists sorted: WAIT PLAESE!!")
 
          #empty not sortedLists
          imonData = []
@@ -518,11 +522,13 @@ def main():
             secondAndThird.append(vmonSortList[idxElem][1])
             secondAndThird.append(vmonSortList[idxElem][2])
             vmonData.append(secondAndThird)
-
+              
+         #smon has: 1 = date for TGraphs, 2 = decaimal status, 3 = date in string format
          for idxElem in range(len(smonSortList)):
             secondAndThird = []
             secondAndThird.append(smonSortList[idxElem][1])
             secondAndThird.append(int(smonSortList[idxElem][2]))
+            secondAndThird.append(smonSortList[idxElem][3])
             smonData.append(secondAndThird)
 
          for idxElem in range(len(isonSortList)):
@@ -537,7 +543,7 @@ def main():
             secondAndThird.append(tempSortList[idxElem][2])
             tempData.append(secondAndThird)
          
-         print("Sorted lists filled!")
+         print("   Sorted lists filled!")
    
          #----------------CREATE HISTOGRAMS----------------------------------------------
          if monitorFlag == "HV":
@@ -776,6 +782,175 @@ def main():
          Temptg1.Write()
 
          #----------------------TREE STATUS------------------------------------------------
+         #translate the status in binary and meaning string
+         smonData_binStatus     = []
+         smonData_decimalStatus = []
+         smonData_dateString    = []
+         smonData_meaningString = []
+
+         #---------------------STATUS MEANING FOR HV--------------------------------------
+         if monitorFlag == "HV":
+         #12 bit status for HV board A1515
+            nBit = 12
+            for smonIdx in range(len(smonData)): 
+               #binary status        
+               binStat = bin(int(smonData[smonIdx][1]))[2:] #to take away the 0b in front of the binary number
+               #print ("binStat:", binStat)
+               lenStat = len(binStat)
+               binStat = str(0) * (nBit - lenStat) + binStat	
+               binStat = "0b"+binStat	
+               smonData_binStatus.append( binStat )
+              
+               #decimal status
+               smonData_decimalStatus.append( smonData[smonIdx][1] )
+
+               #date string
+               smonData_dateString.append( smonData[smonIdx][2] )
+
+               #meaning string
+               extensibleStat = ""
+               if binStat == "0b000000000000": #these are binary numbers
+                  StatusMeaning = "OFF"
+                  #print(StatusMeaning)
+                                                                          
+               if binStat == "0b000000000001": #these are binary numbers
+                  StatusMeaning = "ON"
+                  #print(StatusMeaning)
+    
+               cutBinStr = binStat[13:]
+               if cutBinStr == "0": #if I have OFF
+                  extensibleStat = extensibleStat + "OFF" + " "
+               elif cutBinStr == "1": #if I have OFF
+                  extensibleStat = extensibleStat + "ON" + " "
+                                                                          
+               #bin produces a string (so the operation >> can be only made only on int)
+               #I observe the bin number with bin(shift2)
+               #I shift of one bit to delete the bit 0 from the string
+               shift2 = binStat[:-1]
+       
+               #print("binStat:", binStat, "shift2:", shift2 )
+               if len(shift2) != 13:
+                  print("ERROR: "+monitorFlag+" error in len of shift2"+len(shift2)+"/13")
+                  return 1
+       
+               #for the second status cathegory I need the last two bins of shift2
+               #print ( "shift2", shift2, "bin 1 and 2", shift2[11:])
+               if int(shift2[11:]) > 0:
+                  #print (shift2[11:])
+                  cutBinStr = shift2[11:]
+                  if cutBinStr[1] == "1": #if I have RUP
+                     StatusMeaning = "RUP"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                  if cutBinStr[0] == "1": #if I have RDW
+                     StatusMeaning = "RDW"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+       
+               #third status 
+               shift3 = binStat[:-3] 
+               if len(shift3) != 11:
+                  print("ERROR: "+monitorFlag+" error in len of shift3. Len="+len(shift3)+"/11")
+                  return 1
+ 
+               #print ( "shift3", shift3, "bin 3, 4, 5", shift3[8:])
+               if int(shift3[8:]) > 0:
+                  #print (shift3[8:])
+                  cutBinStr = shift3[8:]
+                  if cutBinStr[2] == "1": #if I have OVC
+                     StatusMeaning = "OVC"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                  if cutBinStr[1] == "1": #if I have OVV
+                     StatusMeaning = "OVV"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                  if cutBinStr[0] == "1": #if I have UVV
+                     StatusMeaning = "UVV"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                                                                          
+               #fourth status                                        
+               shift4 = binStat[:-6] 
+               if len(shift4) != 8:
+                  print("ERROR: "+monitorFlag+" error in len of shift4. Len="+len(shift4)+"/8")
+                  return 1
+       
+               #print ( "shift4", shift4, "bin 6, 7, 8, 9", shift4[4:])
+               if int(shift4[4:]) > 0:
+                  #print (shift4[4:])
+                  cutBinStr = shift4[4:]
+                  if cutBinStr[3] == "1": #if I have Ext Trip
+                     StatusMeaning = "Ext Trip"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                  if cutBinStr[2] == "1": #if I have Max V
+                     StatusMeaning = "Max V"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                  if cutBinStr[1] == "1": #if I have Ext Disable
+                     StatusMeaning = "Ext Disable"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                  if cutBinStr[0] == "1": #if I have Int Trip
+                     StatusMeaning = "Int Trip"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                                                                          
+               #fifth status                                              
+               shift5 = binStat[:-10] 
+               if len(shift5) != 4:
+                  print("ERROR: "+monitorFlag+" error in len of shift5. Len="+len(shift5)+"/4")
+                  return 1
+       
+               #print ( "shift5", shift5, "bin 10", shift5[3:])
+               if int(shift5[3:]) > 0:
+                  #print (shift5[3:])
+                  cutBinStr = shift5[3:]
+                  if cutBinStr[0] == "1": #if I have Calib Error
+                     StatusMeaning = "Calib Error"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                                                                          
+               #sixth status                                              
+               shift6 = binStat[:-11] 
+               if len(shift6) != 3:
+                  print("ERROR: "+monitorFlag+" error in len of shift6. Len="+len(shift5)+"/3")
+                  return 1
+       
+               #print ( "shift6", shift6, "bin 11", shift6[2:])
+               if int(shift6[2:]) > 0:
+                  #print (shift6[2:])
+                  cutBinStr = shift6[2:]
+                  if cutBinStr[0] == "1": #if I have Unplugged
+                     StatusMeaning = "Unplugged"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+
+               smonData_meaningString.append( extensibleStat )
+            
+            #END OF LOOP OVER smonData
+            #check lenght of vectors
+            if len(smonData) != len(smonData_binStatus):
+               print("ERROR: "+monitorFlag+" len(smonData) different from len(smonData_binStatus)")                  
+               print("len(smonData):", len(smonData), "len(smonData_binStatus):", len(smonData_binStatus))
+               return 1
+            if len(smonData_binStatus) != len(smonData_decimalStatus):
+               print("ERROR: "+monitorFlag+" len(smonData_binStatus) different from len(smonData_binStatus)")
+               print("len(smonData_binStatus):", len(smonData_binStatus), "len(smonData_decimalStatus):", len(smonData_decimalStatus))
+               return 1
+            if len(smonData_decimalStatus) != len(smonData_dateString):
+               print("ERROR: "+monitorFlag+" len(smonData_decimalStatus) different from len(smonData_dateString)")
+               print("len(smonData_decimalStatus):", len(smonData_decimalStatus), "len(smonData_dateString):", len(smonData_dateString))
+               return 1
+            if len(smonData_dateString) != len(smonData_meaningString):
+               print("ERROR: "+monitorFlag+" len(smonData_dateString) different from len(smonData_meaningString)") 
+               print("len(smonData_dateString):", len(smonData_dateString), "len(smonData_meaningString):", len(smonData_meaningString))
+               return 1
+
+         #---------------------STATUS MEANING FOR LV--------------------------------------------
+         if monitorFlag == "LV": 
+            print("merdmerdaa")
 
 
 
@@ -787,27 +962,40 @@ def main():
 
 
 
+         #---------------------TREE DECLARATION------------------------------------------------
+         StatusTree = ROOT.TTree(monitorFlag+"_StatusTree"+chamberNameRootFile+"_"+channelName[channelIDIdx], monitorFlag+"_StatusTree"+chamberNameRootFile+"_"+channelName[channelIDIdx])
+          
+         smonRootTimesDate   = ROOT.vector('string')()
+         smonRootDecimalStat = ROOT.vector('string')()
+         smonRootBinStat     = ROOT.vector('string')()
+         smonRootMeaningStat = ROOT.vector('string')()
 
+         StatusTree.Branch( 'TS',          smonRootTimesDate   )	
+         StatusTree.Branch( 'DecimalStat', smonRootDecimalStat )	
+         StatusTree.Branch( 'BinaryStat',  smonRootBinStat     )	
+         StatusTree.Branch( 'MeaningStat', smonRootMeaningStat )	
 
+         for smonIdx in range(len( smonData )):
+            smonRootTimesDate.push_back(   smonData_dateString[smonIdx]    )
+            smonRootDecimalStat.push_back( str(smonData_decimalStatus[smonIdx]) )
+            smonRootBinStat.push_back(     smonData_binStatus[smonIdx]     )
+            smonRootMeaningStat.push_back( smonData_meaningString[smonIdx] )
 
+         StatusTree.Fill()#fill done when vectors are ready and full
+                
+         StatusTree.Write()
 
+      #end of loop over channels
+   #end of loop over chambers
+   #at column 3 we are inside the main 
+   f1.Close()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+   print('\n-------------------------Output--------------------------------')
+   print(fileName+ " has been created.")
+   print("It is organised in directories: to change directory use DIRNAME->cd()")
+   print('To draw a TH1 or a TGraph: OBJNAME->Draw()')
+   print('To scan the root file use for example:\nHV_StatusTree2_2_Top_G3Bot->Scan("","","colsize=26")')
+   print("ALL MONITOR TIMES ARE IN UTC, DCS TIMES ARE IN CET")
 
 
 
