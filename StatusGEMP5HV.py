@@ -12,7 +12,7 @@ from argparse import RawTextHelpFormatter
 from sys import exit
 
 #argparse
-parser = argparse.ArgumentParser(description='''Retrieve from the database the vmon, imon and status informations \nfor qc8 and create a root file for the asked chambers. \nTo execute the code just type \n\npython StatusGEMP5HV.py \n\nand then insert the Start date and the End date of the monitor scan. \nPut the positions of chambers in the stand in the file P5GEMChosenChambers_HV.txt, made with aliases''', formatter_class=RawTextHelpFormatter)
+parser = argparse.ArgumentParser(description='''Retrieve from the database the vmon, imon, status, ison and temperature informations \nfor GEM in P5 and create a root file for the asked chambers. \nTo execute the code just type \n\npython StatusGEMP5HV.py \n\nand then insert the Start date and the End date of the monitor scan. \nPut the name of chosen chambers in the file P5GEMChosenChambers_HV.txt, made with aliases''', formatter_class=RawTextHelpFormatter)
 
 args = parser.parse_args()
 
@@ -27,21 +27,47 @@ dbAccount = os.getenv("GEM_P5_DB_ACCOUNT")
 def main():
    #Reminder: in the DB the DeltaV between pins are saved, not the V from ground
    #-------------KIND OF MONITOR FLAG----------------------------------------
-   monitorFlag = "HV"
-   #monitorFlag = "LV"
-   #-------------FILE WITH CHOSEN CHAMBERS------------------------------------
-   chambersFileName = "P5GEMChosenChambers_sliceTest_HV.txt"
-
-   #-------------FILE WITH EXISTING CHAMBERS-----------------------------------
-   existingChambersFileName = "P5GEMExistingChambers_sliceTest.txt"
-
-   #-------------FILE WITH MAPPING---------------------------------------------
-   mappingFileName = "GEMP5MappingHV_sliceTest.txt"
-
+   #monitorFlag = "HV"
+   monitorFlag = "LV"
    #-------------DEVELOPER SLICE TEST FLAG------------------------------------
    sliceTestFlag = 1 #1 uses the slice test mapping properties
-                     #0 for real P5 conditions
+   #sliceTestFlag = 0 #0 for real P5 conditions
    
+   #-------------FILE WITH CHOSEN CHAMBERS------------------------------------
+   if monitorFlag == "HV":
+      if sliceTestFlag == 0:
+         chambersFileName = "P5GEMChosenChambers_HV.txt"
+      if sliceTestFlag == 1:
+         chambersFileName = "P5GEMChosenChambers_sliceTest_HV.txt"
+
+   if monitorFlag == "LV":
+      if sliceTestFlag == 0:
+         chambersFileName = "P5GEMChosenChambers_LV.txt"
+      if sliceTestFlag == 1:
+         chambersFileName = "P5GEMChosenChambers_sliceTest_LV.txt"
+
+   #-------------FILE WITH EXISTING CHAMBERS-----------------------------------
+   if sliceTestFlag == 0:
+      existingChambersFileName = "P5GEMExistingChambers.txt"
+   if sliceTestFlag == 1:
+      if monitorFlag == "HV":
+         existingChambersFileName = "P5GEMExistingChambers_sliceTest_HV.txt"
+      if monitorFlag == "LV":
+         existingChambersFileName = "P5GEMExistingChambers_sliceTest_LV.txt"
+
+   #-------------FILE WITH MAPPING---------------------------------------------
+   if monitorFlag == "HV":
+      if sliceTestFlag == 0:
+         mappingFileName = "GEMP5MappingHV.txt"
+      if sliceTestFlag == 1:
+         mappingFileName = "GEMP5MappingHV_sliceTest.txt"
+
+   if monitorFlag == "LV":
+      if sliceTestFlag == 0:
+         mappingFileName = "GEMP5MappingLV.txt"
+      if sliceTestFlag == 1:
+         mappingFileName = "GEMP5MappingLV_sliceTest.txt"
+
    #-------------PREPARE START AND END DATE------------------------------------
    sta_period = raw_input("Insert UTC start time in format YYYY-MM-DD HH:mm:ss\n")
    type(sta_period)
@@ -61,17 +87,24 @@ def main():
    endDate   = datetime(int(end[:4]), int(end[5:7]), int(end[8:10]), int(end[11:13]), int(end[14:16]), int(end[17:]) )
  
    #-------------OUTPUT ROOT FILE------------------------------------------------
-   fileName = "P5_GEM_HV_monitor_UTC_start_"+start+"_end_"+end+".root" 
+   fileName = "P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+".root" 
    f1=ROOT.TFile( fileName,"RECREATE")
 
    #-------------DATES OF MAPPING CHANGE-----------------------------------------
    mappingChangeDate = []
    if sliceTestFlag == 1:
-      firstMappingChange = datetime( 2017, 03, 18, 11, 54, 01 ) #trial date for SliceTestMapping
-      secondMappingChange = datetime( 2018, 03, 05, 04, 07, 16 ) #trial date for SliceTestMapping
+      if monitorFlag == "HV":
+         firstMappingChange = datetime( 2017, 03, 18, 11, 54, 01 ) #trial date for SliceTestMapping
+         secondMappingChange = datetime( 2018, 03, 05, 04, 07, 16 ) #trial date for SliceTestMapping
 
-      mappingChangeDate.append( firstMappingChange )
-      mappingChangeDate.append( secondMappingChange )
+         mappingChangeDate.append( firstMappingChange )
+         mappingChangeDate.append( secondMappingChange )
+      if monitorFlag == "LV":
+         firstMappingChange = datetime( 2017, 02, 15, 00, 00, 01 ) #trial date for SliceTestMapping
+         secondMappingChange = datetime( 2017, 06, 17, 16, 17, 05 ) #trial date for SliceTestMapping
+
+         mappingChangeDate.append( firstMappingChange )
+         mappingChangeDate.append( secondMappingChange )
 
    if sliceTestFlag == 0:
       firstMappingChange = datetime( 2019, 10, 01, 00, 00, 01 )
@@ -118,7 +151,7 @@ def main():
 
    print ( periodBool ) 
 
-   #----------MAPPING LENGHT---------------------------------------------------
+   #----------MAPPING LENGTH---------------------------------------------------
    #if mapping is HV is 504 lies long, if LV is 144 lines long
    findMap = 0
    if (mappingFileName.find("HV") != -1):
@@ -131,6 +164,8 @@ def main():
       print("You are using a LV map")
       findMap=-1
       mappingLength = 144 
+      if sliceTestFlag == 1:
+         mappingLength = 12
 
    #-----------READ THE FILE WITH EXISTING CHAMBERS NAMES-----------------------
    ExistingChambers = []
@@ -236,7 +271,7 @@ def main():
          oneMap.append( stringFrontDP + fileMappingLine[lineIdx][:-1] )
       allMappingList.append(oneMap)
 
-   #print ( allMappingList )
+   #print ( "allMappingList", allMappingList )
 
    #-------------CHOOSE THE NEEDED MAPPING LINES FOR EACH REQUESTED CHAMBER----
    allChosenChamberDPs = []
@@ -278,13 +313,38 @@ def main():
             oneLineMap = allMappingList[mapIdx][lineIdx]
             if (oneLineMap.find(chamberList[chIdx]) != -1):
                matchAliasMap_AliasCalled += 1
-         if matchAliasMap_AliasCalled != 7: #in a map I have to have 7 matches, one for each HV channel of the chamber
-            periodBoolInString = ""
-            for perIdx in range(len(periodBool)):
-               periodBoolInString = periodBoolInString + str(periodBool[perIdx]) + " "
-               print("ERROR: In the asked period there is an incorrect number of matches\nbetween the ALIAS called in the file "+ chambersFileName + "and the ALIAS in file\n"+ mappingFileName+" in the maps used (look to vector periodBool:["+ periodBoolInString + "] to know\nwhich ones are used ). Match obtained: "+ str(matchAliasMap_AliasCalled) + "/7")
-               return 1          
- 
+         if monitorFlag == "HV":
+            if sliceTestFlag == 0: #HV AND NORMAL OPERATION IN P5
+               if matchAliasMap_AliasCalled != 7: #in a map I have to have 7 matches, one for each HV channel of the chamber
+                  periodBoolInString = ""
+                  for perIdx in range(len(periodBool)):
+                     periodBoolInString = periodBoolInString + str(periodBool[perIdx]) + " "
+                     print("ERROR: In the asked period there is an incorrect number of matches\nbetween the ALIAS called in the file "+ chambersFileName + "and the ALIAS in file\n"+ mappingFileName+" in the maps used (look to vector periodBool:["+ periodBoolInString + "] to know\nwhich ones are used ). Match obtained: "+ str(matchAliasMap_AliasCalled) + "/7")
+                     return 1          
+            if sliceTestFlag == 1: #HV AND SLICE TEST
+               if matchAliasMap_AliasCalled != 7: #in a map I have to have 7 matches, one for each HV channel of the chamber
+                  periodBoolInString = ""
+                  for perIdx in range(len(periodBool)):
+                     periodBoolInString = periodBoolInString + str(periodBool[perIdx]) + " "
+                     print("ERROR: In the asked period there is an incorrect number of matches\nbetween the ALIAS called in the file "+ chambersFileName + "and the ALIAS in file\n"+ mappingFileName+" in the maps used (look to vector periodBool:["+ periodBoolInString + "] to know\nwhich ones are used ). Match obtained: "+ str(matchAliasMap_AliasCalled) + "/7")
+                     return 1          
+
+         if monitorFlag == "LV":
+            if sliceTestFlag == 0: #LV AND NORMAL OPERATION IN P5
+               if matchAliasMap_AliasCalled != 2: #in a map I have to have 2 mathces, one for the layer 1 and one for layer 2
+                  periodBoolInString = ""
+                  for perIdx in range(len(periodBool)):
+                     periodBoolInString = periodBoolInString + str(periodBool[perIdx]) + " "
+                     print("ERROR: In the asked period there is an incorrect number of matches\nbetween the ALIAS called in the file "+ chambersFileName + "and the ALIAS in file\n"+ mappingFileName+" in the maps used (look to vector periodBool:["+ periodBoolInString + "] to know\nwhich ones are used ). Match obtained: "+ str(matchAliasMap_AliasCalled) + "/2")
+                     return 1          
+            if sliceTestFlag == 1: #LV AND SLICE TEST
+               if matchAliasMap_AliasCalled != 6: #in a map I have to have 6 matches, three for each layer (three: VFAT, OH2V, OH4V)
+                  periodBoolInString = ""
+                  for perIdx in range(len(periodBool)):
+                     periodBoolInString = periodBoolInString + str(periodBool[perIdx]) + " "
+                     print("ERROR: In the asked period there is an incorrect number of matches\nbetween the ALIAS called in the file "+ chambersFileName + "and the ALIAS in file\n"+ mappingFileName+" in the maps used (look to vector periodBool:["+ periodBoolInString + "] to know\nwhich ones are used ). Match obtained: "+ str(matchAliasMap_AliasCalled) + "/6")
+                     return 1          
+
    #------------FIND IDs for each chamber---------------------------------------
    #table CMS_GEM_PVSS_COND.ALIASES contains SINCE, DPE_NAME, ALIAS
    #table CMS_GEM_PVSS_COND.DP_NAME2ID contains DPNAME and ID
@@ -374,7 +434,16 @@ def main():
 
       #put a counter to identify which channel I am looking to 
       #IF I CALL A CHAMBER I AM OBLIGED TO LOOK ALL THE SEVEN CHANNELS
-      channelName = ["G3Bot", "G3Top", "G2Bot", "G2Top", "G1Bot", "G1Top", "Drift"]
+      if monitorFlag == "HV":
+         if sliceTestFlag == 0:
+            channelName = ["G3Bot", "G3Top", "G2Bot", "G2Top", "G1Bot", "G1Top", "Drift"]
+         if sliceTestFlag == 1:
+            channelName = ["G3Bot", "G3Top", "G2Bot", "G2Top", "G1Bot", "G1Top", "Drift"]
+      if monitorFlag == "LV":
+         if sliceTestFlag == 0:
+            channelName = ["L1", "L2"]
+         if sliceTestFlag == 1:
+            channelName = ["L1_VFAT", "L1_OH2V", "L1_OH4V", "L2_VFAT", "L2_OH2V", "L2_OH4V"]
 
       #for each chnnel of a chamber ther eis only one ID
       for channelIDIdx in range(len(allChosenChamberIDs[chIdx])):
@@ -384,7 +453,10 @@ def main():
          isonData = [] #store two Dates and Ison in pair
          tempData = [] #store two Dates and Temp in pair
 
-         queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP, ACTUAL_IMONREAL from " + tableData + " where DPID = " + str(allChosenChamberIDs[chIdx][channelIDIdx]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
+         if monitorFlag == "HV":
+            queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP, ACTUAL_IMONREAL from " + tableData + " where DPID = " + str(allChosenChamberIDs[chIdx][channelIDIdx]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
+         if monitorFlag == "LV":
+            queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from " + tableData + " where DPID = " + str(allChosenChamberIDs[chIdx][channelIDIdx]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
          #print( queryAll ) 
 
          #queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from CMS_GEM_PVSS_COND.FWCAENCHANNELA1515 where  DPID = 55 and CHANGE_DATE > to_date( '2018-04-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date ( '2018-05-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"
@@ -400,7 +472,8 @@ def main():
             smonElem = result[3]
             isonElem = result[4] #it can be only 0 or 1
             tempElem = result[5] #in celcius degrees
-            imonRealElem = result[6]
+            if monitorFlag == "HV":
+               imonRealElem = result[6]
 
             #for the final Tree I need dates in a  string format
             dateElemString = str(dateElem)
@@ -435,9 +508,10 @@ def main():
                tripleList = [ tot_secondsDate, dateElemSQL, imonElem ]
                imonData.append( tripleList )
             else:
-               if imonRealElem is not None:
-                  tripleList = [ tot_secondsDate, dateElemSQL, imonRealElem ]
-                  imonData.append( tripleList )
+               if monitorFlag == "HV":
+                  if imonRealElem is not None:
+                     tripleList = [ tot_secondsDate, dateElemSQL, imonRealElem ]
+                     imonData.append( tripleList )
             if vmonElem is not None:       #vmon
                tripleList = [ tot_secondsDate, dateElemSQL, vmonElem ]
                vmonData.append( tripleList )
@@ -459,7 +533,7 @@ def main():
          #print("isonData", isonData)
          #print("tempData", tempData)
 
-         print( chamberList[chIdx]+ ": Not sorted lists created: WAIT PLEASE!!")
+         print( chamberList[chIdx]+" "+channelName[channelIDIdx] +": Not sorted lists created: WAIT PLEASE!!")
 
          #----------------SORT DATA-------------------------------------------------------
          #after collecting all data (we are inside the loop over chambers)
@@ -670,7 +744,13 @@ def main():
 
          #in case there is nothing the TGraph gives error: put a dummy value
          dummyNumber = -999999999
+         if monitorFlag == "HV":
+            dummyStatus = 4095 #all 1 for a binary status of 12 bit
+         if monitorFlag == "LV":
+            dummyStatus = 65535 #all 1 for a binary status of 16 bit
+         dummyDate = str("1970-01-01 00:00:01.000001")
          dummyPair = [0, dummyNumber]
+         dummyThree = [0, dummyStatus, dummyDate]
          if len(imonData)==0: 
             imonData_dates.append(0)
             imonData_values.append(dummyNumber)
@@ -681,8 +761,8 @@ def main():
             vmonData.append( dummyPair ) 
          if len(smonData)==0:
             smonData_dates.append(0)
-            smonData_values.append(dummyNumber) 
-            smonData.append( dummyPair ) 
+            smonData_values.append(dummyStatus) 
+            smonData.append( dummyThree ) 
          if len(isonData)==0:
             isonData_dates.append(0)
             isonData_values.append(dummyNumber) 
@@ -790,7 +870,20 @@ def main():
 
          #---------------------STATUS MEANING FOR HV--------------------------------------
          if monitorFlag == "HV":
-         #12 bit status for HV board A1515
+            #12 bit status for HV board A1515
+            #Bit 0: ON/OFF
+            #Bit 1: RUP 
+            #Bit 2: RDW
+            #Bit 3: OVC
+            #Bit 4: OVV
+            #Bit 5: UVV
+            #Bit 6: etx trip
+            #Bit 7: MAX V
+            #Bit 8: EXT disable
+            #Bit 9: Internal Trip
+            #Bit 10: calibration error
+            #Bit 11: unplugged
+
             nBit = 12
             for smonIdx in range(len(smonData)): 
                #binary status        
@@ -798,7 +891,7 @@ def main():
                #print ("binStat:", binStat)
                lenStat = len(binStat)
                binStat = str(0) * (nBit - lenStat) + binStat	
-               binStat = "0b"+binStat	
+               binStat = "0b"+binStat
                smonData_binStatus.append( binStat )
               
                #decimal status
@@ -830,7 +923,8 @@ def main():
        
                #print("binStat:", binStat, "shift2:", shift2 )
                if len(shift2) != 13:
-                  print("ERROR: "+monitorFlag+" error in len of shift2"+len(shift2)+"/13")
+                  print("ERROR: "+monitorFlag+" error in len of shift2. Len="+str(len(shift2))+"/13")
+                  print("shift2:", shift2)
                   return 1
        
                #for the second status cathegory I need the last two bins of shift2
@@ -850,7 +944,8 @@ def main():
                #third status 
                shift3 = binStat[:-3] 
                if len(shift3) != 11:
-                  print("ERROR: "+monitorFlag+" error in len of shift3. Len="+len(shift3)+"/11")
+                  print("ERROR: "+monitorFlag+" error in len of shift3. Len="+str(len(shift3))+"/11")
+                  print("shift3:", shift3)
                   return 1
  
                #print ( "shift3", shift3, "bin 3, 4, 5", shift3[8:])
@@ -873,7 +968,8 @@ def main():
                #fourth status                                        
                shift4 = binStat[:-6] 
                if len(shift4) != 8:
-                  print("ERROR: "+monitorFlag+" error in len of shift4. Len="+len(shift4)+"/8")
+                  print("ERROR: "+monitorFlag+" error in len of shift4. Len="+str(len(shift4))+"/8")
+                  print("shift4:", shift4)
                   return 1
        
                #print ( "shift4", shift4, "bin 6, 7, 8, 9", shift4[4:])
@@ -900,7 +996,8 @@ def main():
                #fifth status                                              
                shift5 = binStat[:-10] 
                if len(shift5) != 4:
-                  print("ERROR: "+monitorFlag+" error in len of shift5. Len="+len(shift5)+"/4")
+                  print("ERROR: "+monitorFlag+" error in len of shift5. Len="+str(len(shift5))+"/4")
+                  print("shift5:", shift5)
                   return 1
        
                #print ( "shift5", shift5, "bin 10", shift5[3:])
@@ -915,7 +1012,8 @@ def main():
                #sixth status                                              
                shift6 = binStat[:-11] 
                if len(shift6) != 3:
-                  print("ERROR: "+monitorFlag+" error in len of shift6. Len="+len(shift5)+"/3")
+                  print("ERROR: "+monitorFlag+" error in len of shift6. Len="+str(len(shift6))+"/3")
+                  print("shift6:", shift6)
                   return 1
        
                #print ( "shift6", shift6, "bin 11", shift6[2:])
@@ -930,36 +1028,260 @@ def main():
                smonData_meaningString.append( extensibleStat )
             
             #END OF LOOP OVER smonData
-            #check lenght of vectors
-            if len(smonData) != len(smonData_binStatus):
-               print("ERROR: "+monitorFlag+" len(smonData) different from len(smonData_binStatus)")                  
-               print("len(smonData):", len(smonData), "len(smonData_binStatus):", len(smonData_binStatus))
-               return 1
-            if len(smonData_binStatus) != len(smonData_decimalStatus):
-               print("ERROR: "+monitorFlag+" len(smonData_binStatus) different from len(smonData_binStatus)")
-               print("len(smonData_binStatus):", len(smonData_binStatus), "len(smonData_decimalStatus):", len(smonData_decimalStatus))
-               return 1
-            if len(smonData_decimalStatus) != len(smonData_dateString):
-               print("ERROR: "+monitorFlag+" len(smonData_decimalStatus) different from len(smonData_dateString)")
-               print("len(smonData_decimalStatus):", len(smonData_decimalStatus), "len(smonData_dateString):", len(smonData_dateString))
-               return 1
-            if len(smonData_dateString) != len(smonData_meaningString):
-               print("ERROR: "+monitorFlag+" len(smonData_dateString) different from len(smonData_meaningString)") 
-               print("len(smonData_dateString):", len(smonData_dateString), "len(smonData_meaningString):", len(smonData_meaningString))
-               return 1
 
          #---------------------STATUS MEANING FOR LV--------------------------------------------
          if monitorFlag == "LV": 
-            print("merdmerdaa")
+            #for LV boards A3016 or A3016HP we have a 16 bit status
+            #LV boards (CAEN A3016 o A3016 HP)
+            #Bit 0: ON/OFF
+            #Bit 1: dont care
+            #Bit 2: dont care
+            #Bit 3: OverCurrent
+            #Bit 4: OverVoltage
+            #Bit 5: UnderVoltage
+            #Bit 6: dont care
+            #Bit 7: Over HVmax
+            #Bit 8: dont care
+            #Bit 9: Internal Trip
+            #Bit 10: Calibration Error
+            #Bit 11: Unplugged
+            #Bit 12: dont care
+            #Bit 13: OverVoltage Protection
+            #Bit 14: Power Fail
+            #Bit 15: Temperature Error
+
+            nBit = 16
+            for smonIdx in range(len(smonData)): 
+               #binary status        
+               binStat = bin(int(smonData[smonIdx][1]))[2:] #to take away the 0b in front of the binary number
+               #print ("binStat:", binStat)
+               lenStat = len(binStat)
+               binStat = str(0) * (nBit - lenStat) + binStat	
+               binStat = "0b"+binStat	
+               smonData_binStatus.append( binStat )
+              
+               #decimal status
+               smonData_decimalStatus.append( smonData[smonIdx][1] )
+                                                                     
+               #date string
+               smonData_dateString.append( smonData[smonIdx][2] )
+
+               #meaning string
+               extensibleStat = ""
+               if len(binStat) != (nBit + 2) :             
+                  print("ERROR: "+monitorFlag+" error in len of binStat. Len="+len(binStat)+"/"+str(nBit + 2))
+                  return 1
+
+               if binStat == "0b0000000000000000": #these are binary numbers
+                  StatusMeaning = "OFF"
+                  #print(StatusMeaning)
+
+               if binStat == "0b0000000000000001": #these are binary numbers
+                  StatusMeaning = "ON"
+                  #print(StatusMeaning)
+  
+               cutBinStr = binStat[-1:]
+               if cutBinStr == "0": #if I have OFF
+                  extensibleStat = extensibleStat + "OFF" + " "
+               elif cutBinStr == "1": #if I have OFF
+                  extensibleStat = extensibleStat + "ON" + " "
+
+               #bin produces a string (so the operation >> can be only made only on int)
+               #I observe the bin number with bin(shift2)
+               #I shift of one bit to delete the bit 0 from the string
+               removedBits = 0 - 1 #negative number
+               shift2 = binStat[:removedBits]
+  
+               #print("binStat:", binStat, "shift2:", shift2 )
+               if len(shift2) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift2. Len="+len(shift2)+"/"+str(nBit + 2 + removedBits ))
+                  return 1
+ 
+               #I have to remove bit 1 and 2 because they are not interesting
+               #len(shift2)-2    -2 because I want the last two bits
+               #print ( "shift2", shift2, "bin 1 and 2", shift2[len(shift2)-2:])
+ 
+               #remove bit 1 and 2 : second status cathegory even if it is written mismatch 3: I removed the bits 
+               removedBits = removedBits - 2 #negative number
+               shift3 = binStat[:removedBits]
+  
+               if len(shift3) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift3. Len="+len(shift3)+"/"+str(nBit + 2 + removedBits ))
+                  return 1
+
+               #for the second status cathegory I need the last two bins of shift3
+               #print ( "shift3", shift3, "bit 3 4 5", shift3[len(shift3)-3:])
+               if int(shift3[len(shift3)-3:]) > 0:
+                  #print (shift3[len(shift3)-3:])
+                  cutBinStr = shift3[len(shift3)-3:]
+                  if cutBinStr[2] == "1": #if I have OVC
+                     StatusMeaning = "OVC"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                  if cutBinStr[1] == "1": #if I have OVV
+                     StatusMeaning = "OVV"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                  if cutBinStr[0] == "1": #if I have UVV
+                     StatusMeaning = "UVV"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+
+               #remove bit 3 4 5
+               removedBits = removedBits - 3 #negative number
+               shift4 = binStat[:removedBits]
+ 
+               if len(shift4) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift4. Len="+len(shift4)+"/"+str(nBit + 2 + removedBits ))
+                  return 1
+ 
+               #print ( "shift4", shift4, "bit 6", shift4[len(shift4)-1:])
+ 
+               #remove bit 6
+               removedBits = removedBits - 1 #negative number
+               shift5 = binStat[:removedBits]
+  
+               if len(shift5) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift5. Len="+len(shift5)+"/"+str(nBit + 2 + removedBits ))
+                  return 1                                                                                                      
+               #for the third status cathegory I need the last four bins of shift5
+               #I dont register the bit 8 beacuse not interesting
+               #print ( "shift5", shift5, "bit 7, 8, 9", shift5[len(shift5)-3:])
+               if int(shift5[len(shift5)-3:]) > 0: 
+                  #print (shift5[len(shift5)-3:])
+                  cutBinStr = shift5[len(shift5)-3:]
+                  if cutBinStr[2] == "1": #if I have OHVMax
+                     StatusMeaning = "OHVMax"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+                  if cutBinStr[0] == "1": #if I have INTTRIP
+                     StatusMeaning = "InTrip"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+
+               #remove bit 7 8 9 to do the fourth status cathegory
+               removedBits = removedBits - 3 #negative number
+               shift6 = binStat[:removedBits]
+  
+               if len(shift6) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift6. Len="+len(shift6)+"/"+str(nBit + 2 + removedBits ))
+                  return 1
+
+               #for the fourth status cathegory I need the last bit of shift6
+               #print ( "shift6", shift6, "bit 10", shift6[len(shift6)-1:])
+               if int(shift6[len(shift6)-1:]) > 0: 
+                  #print (shift6[len(shift6)-1:])
+                  cutBinStr = shift6[len(shift6)-1:]
+                  if cutBinStr[0] == "1": #if I have Calib Error
+                     StatusMeaning = "CalibERR"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+
+               #remove bit 10
+               removedBits = removedBits - 1 #negative number
+               shift7 = binStat[:removedBits]
+  
+               if len(shift7) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift7. Len="+len(shift7)+"/"+str(nBit + 2 + removedBits ))
+                  return 1
+
+               #for the fifth status cathegory I need the last bit of shift7
+               #print ( "shift7", shift7, "bit 11", shift7[len(shift7)-1:])
+               if int(shift7[len(shift7)-1:]) > 0: 
+                  #print (shift7[len(shift7)-1:])
+                  cutBinStr = shift7[len(shift7)-1:]
+                  if cutBinStr[0] == "1": #if I have Unplugged
+                     StatusMeaning = "Unplugged"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+
+               #remove bit 11
+               removedBits = removedBits - 1 #negative number
+               shift8 = binStat[:removedBits]
+  
+               if len(shift8) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift8. Len="+len(shift8)+"/"+str(nBit + 2 + removedBits ))
+                  return 1
+                                   
+               #print ( "shift8", shift8, "bit 12", shift8[len(shift8)-1:])   #bit 12 not interesting
+
+               #remove bit 12 to do the sixth status cathegory
+               removedBits = removedBits - 1 #negative number
+               shift9 = binStat[:removedBits]
+  
+               if len(shift9) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift9. Len="+len(shift9)+"/"+str(nBit + 2 + removedBits ))
+                  return 1
+
+               #for the sixth status cathegory I need the last bit of shift9
+               #print ( "shift9", shift9, "bit 13", shift9[len(shift9)-1:])
+               if int(shift9[len(shift9)-1:]) > 0: 
+                  #print (shift9[len(shift9)-1:])
+                  cutBinStr = shift9[len(shift9)-1:]
+                  if cutBinStr[0] == "1": #if I have OVVPROT
+                     StatusMeaning = "OVVPROT"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+
+               #remove bit 13 to do the seventh status cathegory
+               removedBits = removedBits - 1 #negative number
+               shift10 = binStat[:removedBits]
+  
+               if len(shift10) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift10. Len="+len(shift10)+"/"+str(nBit + 2 + removedBits ))
+                  return 1
+            
+               #for the seventh status cathegory I need the last bit of shift10
+               #print ( "shift10", shift10, "bit 14", shift10[len(shift10)-1:])
+               if int(shift10[len(shift10)-1:]) > 0: 
+                  #print (shift10[len(shift10)-1:])
+                  cutBinStr = shift10[len(shift10)-1:]
+                  if cutBinStr[0] == "1": #if I have POWFAIL
+                     StatusMeaning = "POWFAIL"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+
+               #remove bit 14 to do the eight status cathegory
+               removedBits = removedBits - 1 #negative number
+               shift11 = binStat[:removedBits]
+  
+               if len(shift11) != (nBit + 2) + removedBits:
+                  print("ERROR: "+monitorFlag+" error in len of shift11. Len="+len(shift11)+"/"+str(nBit + 2 + removedBits ))
+                  return 1
+
+               #for the eight status cathegory I need the last bit of shift11
+               #print ( "shift11", shift11, "bit 15", shift11[len(shift11)-1:])
+               if int(shift11[len(shift11)-1:]) > 0: 
+                  #print (shift11[len(shift11)-1:])
+                  cutBinStr = shift11[len(shift11)-1:]
+                  if cutBinStr[0] == "1": #if I have TEMPERR
+                     StatusMeaning = "TEMPERR"
+                     extensibleStat = extensibleStat + StatusMeaning + " "
+                     #print(StatusMeaning)
+
+               smonData_meaningString.append( extensibleStat )
+
+            #END OF LOOP OVER smonData
 
 
-
-
-
-
-
-
-
+         #------------------CHECK SIZE OF VECTORS FOR TREE-------------------------------------
+         #check lenght of vectors
+         if len(smonData) != len(smonData_binStatus):
+            print("ERROR: "+monitorFlag+" len(smonData) different from len(smonData_binStatus)")                  
+            print("len(smonData):", len(smonData), "len(smonData_binStatus):", len(smonData_binStatus))
+            return 1
+         if len(smonData_binStatus) != len(smonData_decimalStatus):
+            print("ERROR: "+monitorFlag+" len(smonData_binStatus) different from len(smonData_binStatus)")
+            print("len(smonData_binStatus):", len(smonData_binStatus), "len(smonData_decimalStatus):", len(smonData_decimalStatus))
+            return 1
+         if len(smonData_decimalStatus) != len(smonData_dateString):
+            print("ERROR: "+monitorFlag+" len(smonData_decimalStatus) different from len(smonData_dateString)")
+            print("len(smonData_decimalStatus):", len(smonData_decimalStatus), "len(smonData_dateString):", len(smonData_dateString))
+            return 1
+         if len(smonData_dateString) != len(smonData_meaningString):
+            print("ERROR: "+monitorFlag+" len(smonData_dateString) different from len(smonData_meaningString)") 
+            print("len(smonData_dateString):", len(smonData_dateString), "len(smonData_meaningString):", len(smonData_meaningString))
+            return 1
 
 
          #---------------------TREE DECLARATION------------------------------------------------
