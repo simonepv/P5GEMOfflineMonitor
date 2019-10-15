@@ -27,8 +27,8 @@ dbAccount = os.getenv("GEM_P5_DB_ACCOUNT")
 def main():
    #Reminder: in the DB the DeltaV between pins are saved, not the V from ground
    #-------------KIND OF MONITOR FLAG----------------------------------------
-   #monitorFlag = "HV"
-   monitorFlag = "LV"
+   monitorFlag = "HV"
+   #monitorFlag = "LV"
    #-------------DEVELOPER SLICE TEST FLAG------------------------------------
    sliceTestFlag = 1 #1 uses the slice test mapping properties
    #sliceTestFlag = 0 #0 for real P5 conditions
@@ -101,7 +101,7 @@ def main():
          mappingChangeDate.append( secondMappingChange )
       if monitorFlag == "LV":
          firstMappingChange = datetime( 2017, 02, 15, 00, 00, 01 ) #trial date for SliceTestMapping
-         secondMappingChange = datetime( 2017, 06, 17, 16, 17, 05 ) #trial date for SliceTestMapping
+         secondMappingChange = datetime( 2017, 06, 9, 16, 17, 04 ) #trial date for SliceTestMapping
 
          mappingChangeDate.append( firstMappingChange )
          mappingChangeDate.append( secondMappingChange )
@@ -127,7 +127,7 @@ def main():
    
    #errors declaration
    if (startDate < mappingChangeDate[0] or endDate < mappingChangeDate[0]) :
-      LowDateError = "ERROR: Date too early!! Dates must be greater than"+ str(mappingChangeDate[0]) 
+      LowDateError = "ERROR: Date too early!! Dates must be greater than "+ str(mappingChangeDate[0]) 
       exit( LowDateError )
    if (startDate > endDate):
       SwapDateError = "ERROR: Start date greater than end date!!"
@@ -168,6 +168,9 @@ def main():
          mappingLength = 12
 
    #-----------READ THE FILE WITH EXISTING CHAMBERS NAMES-----------------------
+   #in the string in ExistingChambers file are contained all the names that a chmaber can have in different mappings
+   #example: if a chamber is called in first map with alias SC27 and then as GEMINI27, in file existsing chmabers 
+   # is indicated with SC27:GEMINI27
    ExistingChambers = []
    nExistingChambers = sum(1 for line in open(existingChambersFileName))
    print ("In "+ existingChambersFileName + " you have "+str(nExistingChambers)+" chambers")
@@ -177,7 +180,8 @@ def main():
 
    for exChamber in range(int(nExistingChambers)):
       exChamberName = str(fileExChambersLine[exChamber])[:-1]
-      ExistingChambers.append( exChamberName )      
+      ShortAliasOneChamber = exChamberName.split(":")
+      ExistingChambers.append( ShortAliasOneChamber )      
 
    print( "ExistingChambers:", ExistingChambers ) 
    
@@ -191,22 +195,25 @@ def main():
    fileChambersLine = fileChambers.readlines()
 
    chamberList = []
-   
+   #in chamberList I can use only one name for one chamber
+   #I have to check that the name exists in existing chambers file
+ 
    for chIdx in range(int(howManyChambers)):
       chamberName = str(fileChambersLine[chIdx])[:-1]
       #print chamberName
       #check that the name of the chamber is one of the existing
       ExistBool = False
       for existIdx in range(len(ExistingChambers)):
-         if chamberName == ExistingChambers[ existIdx ]:
-            ExistBool = True
+         for existSplitIdx in range(len(ExistingChambers[existIdx])):
+            alterName = ExistingChambers[existIdx][existSplitIdx]
+            if chamberName == alterName:
+               ExistBool = True
       if ExistBool == False:
          print ("ERROR: WRONG NAME OF THE CHAMBER: the accepted names are in File: " + existingChambersFileName)
          return 1
       chamberList.append( chamberName )
 
    print ( chamberList )
-
 
    #------------READ THE MAPPING FILE--------------------------------------------
    fileMapping = open(mappingFileName, "r")
@@ -243,11 +250,6 @@ def main():
    if allCorrectMapFlag == True:
       for mapIdx in range(len(boolMapping)):
          boolMapping[mapIdx] = bool(periodBool[mapIdx])
-         #print (boolMapping[mapIdx], periodBool[mapIdx])
-
-
-   #print ( "MappingStartLines:", startMappingLines )
-   #print ( "boolMapping:", boolMapping )
 
    #check that the periodBool is the same of boolMapping
    if boolMapping != periodBool:
@@ -259,7 +261,6 @@ def main():
    subString1 = fileMappingLine[0][column1+1:]
    column2 = subString1.index(":")
    stringFrontDP = subString1[column2+2:-2]
-   #print(stringFrontDP)  
  
    #------------CHARGE THE MAPPING-----------------------------------------------
    #store the mapping each in a dedicated vector
@@ -273,109 +274,204 @@ def main():
 
    #print ( "allMappingList", allMappingList )
 
-   #-------------CHOOSE THE NEEDED MAPPING LINES FOR EACH REQUESTED CHAMBER----
-   allChosenChamberDPs = []
-   
-   #charge a DP only if the mapBoolean corresponding is True
-   for chIdx in range(len(chamberList)): #loop on chosen chambers
-      oneChamberDPs = []
-      for allMapIdx in range(len(allMappingList)): #loop on all maps
-         if boolMapping[allMapIdx]==0: #if the map is not used don't charge it
-            continue
-         for oneMapIdx in range(len(allMappingList[allMapIdx])): #loop on oneMap
-            oneMapLine = allMappingList[allMapIdx][oneMapIdx]
-            #print( "boolMapping:", boolMapping[allMapIdx], "chIdx:", chIdx, " chamber:" , chamberList[chIdx], " oneMapIdx:", oneMapLine )
-            if (oneMapLine.find(chamberList[chIdx]) != -1):
-               #print( "boolMapping:", boolMapping[allMapIdx], "chIdx:", chIdx, " chamber:" , chamberList[chIdx], " oneMapIdx:", oneMapLine, "FOUND" )
-               column2Idx = oneMapLine.index(":",15)
-               oneChamberDPs.append(oneMapLine[:column2Idx])
-      allChosenChamberDPs.append(oneChamberDPs)
-  
-   #print("----------------------------------------------------------------------")
-   #print("                            CALLED DPs                                ")
-   #print("\n")
-   #for chIdx in range(len(chamberList)):
-   #   print ( chamberList[chIdx] ) 
-   #   print ( allChosenChamberDPs[chIdx] )
-
    #------------DATABASE CONNECT------------------------------------------------
    db = cx_Oracle.connect( dbAccount+"@"+dbName )
    cur = db.cursor()
-  
-   #-----------FIND THE DP FROM THE ALIAS--------------------------------------
-   #check that in the called period is used the same alias used in the file of chosen chambers to select the chamber (the alias to call a chmaber is a part of the alias string)
-   for chIdx in range(len(chamberList)):
-      for mapIdx in range(len(allMappingList)):#loop on maps
-         if boolMapping[mapIdx]==False:
-            continue
-         matchAliasMap_AliasCalled = 0
-         for lineIdx in range(len(allMappingList[mapIdx])):#loop inside a map
-            oneLineMap = allMappingList[mapIdx][lineIdx]
-            if (oneLineMap.find(chamberList[chIdx]) != -1):
-               matchAliasMap_AliasCalled += 1
-         if monitorFlag == "HV":
-            if sliceTestFlag == 0: #HV AND NORMAL OPERATION IN P5
-               if matchAliasMap_AliasCalled != 7: #in a map I have to have 7 matches, one for each HV channel of the chamber
-                  periodBoolInString = ""
-                  for perIdx in range(len(periodBool)):
-                     periodBoolInString = periodBoolInString + str(periodBool[perIdx]) + " "
-                     print("ERROR: In the asked period there is an incorrect number of matches\nbetween the ALIAS called in the file "+ chambersFileName + "and the ALIAS in file\n"+ mappingFileName+" in the maps used (look to vector periodBool:["+ periodBoolInString + "] to know\nwhich ones are used ). Match obtained: "+ str(matchAliasMap_AliasCalled) + "/7")
-                     return 1          
-            if sliceTestFlag == 1: #HV AND SLICE TEST
-               if matchAliasMap_AliasCalled != 7: #in a map I have to have 7 matches, one for each HV channel of the chamber
-                  periodBoolInString = ""
-                  for perIdx in range(len(periodBool)):
-                     periodBoolInString = periodBoolInString + str(periodBool[perIdx]) + " "
-                     print("ERROR: In the asked period there is an incorrect number of matches\nbetween the ALIAS called in the file "+ chambersFileName + "and the ALIAS in file\n"+ mappingFileName+" in the maps used (look to vector periodBool:["+ periodBoolInString + "] to know\nwhich ones are used ). Match obtained: "+ str(matchAliasMap_AliasCalled) + "/7")
-                     return 1          
 
-         if monitorFlag == "LV":
-            if sliceTestFlag == 0: #LV AND NORMAL OPERATION IN P5
-               if matchAliasMap_AliasCalled != 2: #in a map I have to have 2 mathces, one for the layer 1 and one for layer 2
-                  periodBoolInString = ""
-                  for perIdx in range(len(periodBool)):
-                     periodBoolInString = periodBoolInString + str(periodBool[perIdx]) + " "
-                     print("ERROR: In the asked period there is an incorrect number of matches\nbetween the ALIAS called in the file "+ chambersFileName + "and the ALIAS in file\n"+ mappingFileName+" in the maps used (look to vector periodBool:["+ periodBoolInString + "] to know\nwhich ones are used ). Match obtained: "+ str(matchAliasMap_AliasCalled) + "/2")
-                     return 1          
-            if sliceTestFlag == 1: #LV AND SLICE TEST
-               if matchAliasMap_AliasCalled != 6: #in a map I have to have 6 matches, three for each layer (three: VFAT, OH2V, OH4V)
-                  periodBoolInString = ""
-                  for perIdx in range(len(periodBool)):
-                     periodBoolInString = periodBoolInString + str(periodBool[perIdx]) + " "
-                     print("ERROR: In the asked period there is an incorrect number of matches\nbetween the ALIAS called in the file "+ chambersFileName + "and the ALIAS in file\n"+ mappingFileName+" in the maps used (look to vector periodBool:["+ periodBoolInString + "] to know\nwhich ones are used ). Match obtained: "+ str(matchAliasMap_AliasCalled) + "/6")
-                     return 1          
+   #-------------CHOOSE THE NEEDED MAPPING LINES FOR EACH REQUESTED CHAMBER----
+   AllChosenChamberAllDPsWanted = []
+   #charge a DP only if the mapBoolean corresponding is True
+   for chIdx in range(len(chamberList)): #loop on chosen chambers (name of chamber as that in the ChosenChambers file)
+      OneChamberAllDPs = []
+      for allMapIdx in range(len(allMappingList)): #loop on all maps
+         OneMapAllDPs = []
+         #if boolMapping[allMapIdx]==0: #if the map is not used don't charge it
+         #   continue
+         for oneMapIdx in range(len(allMappingList[allMapIdx])): #loop on One Map
+            #take one line of the mapping 
+            oneMapLine = allMappingList[allMapIdx][oneMapIdx]
+            #now I have to look for a specific channel
+            if monitorFlag == "HV":                                                                     
+               if sliceTestFlag == 0:
+                  channelNameAsInMap = ["G3Bot", "G3Top", "G2Bot", "G2Top", "G1Bot", "G1Top", "Drift"] #part of alias in map that can be used to identify the channel
+               if sliceTestFlag == 1:
+                  channelNameAsInMap = ["G3bot", "G3top", "G2bot", "G2top", "G1bot", "G1top", "Drift"]
+            if monitorFlag == "LV":
+               if sliceTestFlag == 0:
+                  channelNameAsInMap = ["L1", "L2"]
+               if sliceTestFlag == 1:
+                  if allMapIdx == 0:
+                     channelNameAsInMap = ["TOP_VFAT", "TOP_OH2V", "TOP_OH4V", "BOT_VFAT", "BOT_OH2V", "BOT_OH4V"]
+                  if allMapIdx == 1:
+                     channelNameAsInMap = ["L1_VFAT", "L1_OH2V", "L1_OH4V", "L2_VFAT", "L2_OH2V", "L2_OH4V"]
 
-   #------------FIND IDs for each chamber---------------------------------------
+            #now that there are channelName I look for a specific channel
+            for channelNameIdx in range(len(channelNameAsInMap)):
+               if (oneMapLine.find(channelNameAsInMap[channelNameIdx]) != -1):
+                  #the order of chambers in Existing chambers can be different from that in chamberList
+                  chamberMatch = False
+                  for existChamberIdx in range(len(ExistingChambers)): 
+                     listAlterNamesOneChamber = ExistingChambers[existChamberIdx]
+                     for alterNamesIdx in range(len(listAlterNamesOneChamber)):
+                        if chamberList[chIdx] == listAlterNamesOneChamber[alterNamesIdx]:
+                           chamberMatch = True
+                           indexInExistingChambers = existChamberIdx
+                  #now I know that the chamber I am looking to is the right one
+                  #I look for a match between names of the chamber I am looking to and the line of the mapping
+                  for alterNameThisChamberIdx in range(len(ExistingChambers[indexInExistingChambers])):
+                     alterName = ExistingChambers[indexInExistingChambers][alterNameThisChamberIdx]
+                     if (oneMapLine.find( alterName ) != -1 ):
+                        #save this DP (for this map) for this channel
+                        column2Idx = oneMapLine.index(":",15)
+                        OneChannelOneDP = oneMapLine[:column2Idx]
+                        OneChannelMapAlias = oneMapLine[column2Idx+1:]
+                        OneChannelOneShortAlias = alterName
+                        print( "PairDPAlias", OneChannelOneDP, OneChannelOneShortAlias )
+                        
+                        #I have to look in the DB which is the SINCE associated to this ALIAS and DPE_NAME in table CMS_GEM_PVSS_COND.ALIASES
+                        #REMEMBER: there is a dot at the end of DPE_NAME in ALIASES table 
+                        query = "select SINCE, DPE_NAME, ALIAS from CMS_GEM_PVSS_COND.ALIASES where DPE_NAME='"+str(OneChannelOneDP)+".' and ALIAS='"+str(OneChannelMapAlias)+"'"
+                        cur.execute(query)
+                        curALIAS = cur
+                        for result in curALIAS:
+                           OneChannelOneSince = result[0]
+                           
+                        DPAliasSinceOneChannel = []
+                        DPAliasSinceOneChannel.append(OneChannelOneDP)
+                        DPAliasSinceOneChannel.append(OneChannelOneShortAlias)
+                        DPAliasSinceOneChannel.append(OneChannelOneSince)
+                        
+                        OneMapAllDPs.append(DPAliasSinceOneChannel)   
+                        #print("OneMapAllDPs", OneMapAllDPs) 
+         OneChamberAllDPs.append(OneMapAllDPs)
+         #print("OneChamberAllDPs", OneChamberAllDPs)
+      #now OneChamberAllDPs is ready. I have to reorder the elements since I need a product given by a channel loop and then a map loop
+      #instead I have a map loop and then a channel loop
+      #I'd need this
+      #[chamber]
+      #[[channel1][channel2]]
+      #[[[map1],[map2]][[map1],[map2]]]
+      #[[[DP, SHORTALIAS, SINCE],[DP, SHORTALIAS, SINCE]][[DP, SHORTALIAS, SINCE],[DP, SHORTALIAS, SINCE]]]
+      #[[[1],[2]][[3],[4]]]
+
+      #INSTEAD I HAVE 
+      #[[[1],[3]][[2],[4]]]
+
+      #print("OneChamberAllDPs", OneChamberAllDPs)
+      
+      #REORDER
+      #print ("OneChamberAllDPs[0]", OneChamberAllDPs[0]) 
+      #print ("OneChamberAllDPs[0]", type(OneChamberAllDPs[0])) 
+      #print ("OneChamberAllDPs[0]", len(OneChamberAllDPs[0])) 
+      howManyChannelsInAMap = len(OneChamberAllDPs[0]) #number of channels seen in a map for this chamber
+      OneChamberAllDPsWanted = []
+      for channelIdx in range(howManyChannelsInAMap):
+         fixedChannelList = []
+         for mapIdx in range(len(OneChamberAllDPs)):
+            takenTriplet = OneChamberAllDPs[mapIdx][channelIdx]
+            fixedChannelList.append(takenTriplet)
+         OneChamberAllDPsWanted.append(fixedChannelList)
+
+      #print("OneChamberAllDPsWanted", OneChamberAllDPsWanted)
+      
+      #sort in case SINCE are stored not in the cronological order
+      for channelIdx in range(len(OneChamberAllDPsWanted)):
+         OneChannelAllMapsList = OneChamberAllDPsWanted[channelIdx]
+         OneChannelAllMapsListSorted = sorted(OneChannelAllMapsList, key=lambda element: element[2]) #element[2] is SINCE
+         OneChamberAllDPsWanted[channelIdx] = OneChannelAllMapsListSorted
+      #print("OneChamberAllDPsWanted", OneChamberAllDPsWanted)
+
+   #------------SEE WHICH SINCE ARE TO USE-----------------------------------------------------------------------------
    #table CMS_GEM_PVSS_COND.ALIASES contains SINCE, DPE_NAME, ALIAS
    #table CMS_GEM_PVSS_COND.DP_NAME2ID contains DPNAME and ID
    #for a data point there could be different IDs associated, depending on their
    #validity period
 
-   #DPE_NAME has a dot at the end of channellXXX, DPNAME has not a dot
+   #select only the necessary IDs depending on sta_period and end_period 
+   #add a true or a False to OneChamberAllDPsWanted triplet to say if this since has to be used or not
+   #[[[DP, ALIASSHORT, SINCE],[DP, ALIASSHORT, SINCE]],[[DP, ALIASSHORT, SINCE],[DP, ALIASSHORT, SINCE]]]
+   #[[    MAP 1              ,     MAP2              ],[    MAP1               ,      MAP2             ]]
+   #[                CHANNEL 1                        ,                 CHANNEL 2                       ]
+   #                                              CHAMBER
 
-   allChosenChamberIDs=[]
-  
-   print("-------------------------------------------------------------------------") 
-   print("                      CALLED DPs AND THEIR IDs                           ")
-   for chIdx in range(len(chamberList)):
-      oneChosenChamberIDs=[]
-      for dpIdx in range(len(allChosenChamberDPs[chIdx])):
-         query = "select ID, DPNAME from CMS_GEM_PVSS_COND.DP_NAME2ID where DPNAME='"+allChosenChamberDPs[chIdx][dpIdx]+"'"
-         cur.execute(query)
-         curID = cur
-         for result in curID:
-            dpID   = result[0]
-            dpNAME = result[1]
+      for channelIdx in range(len(OneChamberAllDPsWanted)):
+         listOfDates = []
+         for mapIdx in range(len(OneChamberAllDPsWanted[channelIdx])):
+            usedMap = False
+            sinceMap = OneChamberAllDPsWanted[channelIdx][mapIdx][2]
+            pairDateFalse = []
+            pairDateFalse.append(sinceMap)
+            pairDateFalse.append(False)
+            listOfDates.append( pairDateFalse )
+         #appendAlso the start and end date
+         startPair = [startDate, True]
+         endPair = [endDate, True]
+         listOfDates.append( startPair )
+         listOfDates.append( endPair   )
+
+         sortDates = sorted(listOfDates, key=lambda element: element[0]) #sortDate is made by lists [SINCE, trueorfalse]
+         #mark the since to use
+         startIdx = sortDates.index( startPair )
+         endIdx   = sortDates.index( endPair   )
+         if startIdx == 0:
+            print( "start is before the first since")
+         if (startIdx == 0 and endIdx == 1):
+            print("both start and end are before the first since: no data expected")
             
-            print( "chamber:", chamberList[chIdx], "ID", dpID, "DPNAME", dpNAME )
-            #it seems there is only one ID(if more than one care about the time order of calls)         
-            oneChosenChamberIDs.append(dpID)
-      allChosenChamberIDs.append(oneChosenChamberIDs)
-  
-   print("ChosenIDs")
-   for chIdx in range(len(chamberList)):
-      print(chamberList[chIdx], allChosenChamberIDs[chIdx])
+         #mark since to use
+         #first since if start is before start      
+         if startIdx != 0:
+            sortDates[startIdx-1][1] = True
+         for sortIdx in range(len(sortDates)):
+            if (sortIdx > startIdx and sortIdx < endIdx):
+               sortDates[sortIdx][1] = True
 
+         #print("sortDates", sortDates)
+         
+         #add the true or false to the OneChamberAllDPsWanted list
+         for mapIdx in range(len(OneChamberAllDPsWanted[channelIdx])):
+            sinceDate = OneChamberAllDPsWanted[channelIdx][mapIdx][2]
+            threeElements = OneChamberAllDPsWanted[channelIdx][mapIdx]
+            for sortIdx in range(len(sortDates)):
+               #if the dates in two lists are the same I add the boolean
+               if sortDates[sortIdx][0] == OneChamberAllDPsWanted[channelIdx][mapIdx][2]:
+                  threeElements.append(sortDates[sortIdx][1]) #the boolean is in position 1
+                  OneChamberAllDPsWanted[channelIdx][mapIdx] = threeElements         
+         
+      #print("OneChamberAllDPsWanted with true or false", OneChamberAllDPsWanted)
+
+      #--------------------------FIND IDs------------------------------------------------------------------------
+      #DPE_NAME has a dot at the end of channellXXX, DPNAME has not a dot
+
+      print("-------------------------------------------------------------------------------------------------------------------------") 
+      print("                    "+chamberList[chIdx]+" :CALLED DPs AND THEIR IDs")
+      for channelIdx in range(len(OneChamberAllDPsWanted)):
+         oneChannelIDs=[]
+         for mapIdx in range(len(OneChamberAllDPsWanted[channelIdx])):
+            thisMapDP = OneChamberAllDPsWanted[channelIdx][mapIdx][0] 
+            thisMapAlias = OneChamberAllDPsWanted[channelIdx][mapIdx][1]
+            query = "select ID, DPNAME from CMS_GEM_PVSS_COND.DP_NAME2ID where DPNAME='"+thisMapDP+"'"
+            cur.execute(query)
+            curID = cur
+            for result in curID:
+               dpID   = result[0]
+               dpNAME = result[1]
+               
+            print( "chamber:", chamberList[chIdx], "channel", channelNameAsInMap[channelIdx], "ID", dpID, "DPNAME", dpNAME, "ALIAS", thisMapAlias )
+            #add to the four elements of OneChamberAllDPsWanted[channelIdx][mapIdx] also the ID
+            fourElements = OneChamberAllDPsWanted[channelIdx][mapIdx]
+            fourElements.append( dpID )
+            OneChamberAllDPsWanted[channelIdx][mapIdx] = fourElements
+            #now OneChamberAllDPsWanted[channelIdx][mapIdx] is made by a list
+            #[DP, ALIASSHORT, SINCE, BOOL for the since to use, DPID]
+
+      #print("OneChamberAllDPsWanted with also IDs", OneChamberAllDPsWanted)
+    
+      AllChosenChamberAllDPsWanted.append(OneChamberAllDPsWanted)
+
+   #OUT OF CHAMBER LOOP
+   #print("AllChosenChamberAllDPsWanted", AllChosenChamberAllDPsWanted)
+     
    #--------------RETRIEVE DATA FOR HV--------------------------------------------
    #table CMS_GEM_PVSS_COND.FWCAENCHANNELA1515 for HV
    #table CMS_GEM_PVSS_COND.FWCAENCHANNEL for LV
@@ -445,178 +541,181 @@ def main():
          if sliceTestFlag == 1:
             channelName = ["L1_VFAT", "L1_OH2V", "L1_OH4V", "L2_VFAT", "L2_OH2V", "L2_OH4V"]
 
-      #for each chnnel of a chamber ther eis only one ID
-      for channelIDIdx in range(len(allChosenChamberIDs[chIdx])):
+      for channelIdx in range(len(AllChosenChamberAllDPsWanted[chIdx])):
+         OneChannelInfo = AllChosenChamberAllDPsWanted[chIdx][channelIdx]
          imonData = [] #store two Dates and Imon in pair (0th Date in millisecond from the first element stored, 1st Date as wanted by root, 2nd Imon)
          vmonData = [] #store two Dates and Vmon in pair
          smonData = [] #store two Dates and Status in pair
          isonData = [] #store two Dates and Ison in pair
          tempData = [] #store two Dates and Temp in pair
 
-         if monitorFlag == "HV":
-            queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP, ACTUAL_IMONREAL from " + tableData + " where DPID = " + str(allChosenChamberIDs[chIdx][channelIDIdx]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
-         if monitorFlag == "LV":
-            queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from " + tableData + " where DPID = " + str(allChosenChamberIDs[chIdx][channelIDIdx]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
-         #print( queryAll ) 
-
-         #queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from CMS_GEM_PVSS_COND.FWCAENCHANNELA1515 where  DPID = 55 and CHANGE_DATE > to_date( '2018-04-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date ( '2018-05-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"
-
-         cur.execute(queryAll)
-         curAllData = cur
+         #look how many SINCE I have in this channel
+         howManySince = len(OneChannelInfo)
+         
          contData = 0
-         for result in curAllData:
-            #print (result)
-            dateElem = result[0]
-            imonElem = result[1]
-            vmonElem = result[2]
-            smonElem = result[3]
-            isonElem = result[4] #it can be only 0 or 1
-            tempElem = result[5] #in celcius degrees
+         #for each chnnel of a chamber there are more than one ID
+         for mapIdx in range(len( OneChannelInfo )):
+            sinceThisMap = OneChannelInfo[mapIdx][2]
+            aliasThisMap = OneChannelInfo[mapIdx][1]
+            #look which is the first date to call and which is the last date to call, not to call two times a selection on date
+            firstDateToCall = startDate
+            if sinceThisMap > startDate:
+               if OneChannelInfo[mapIdx][3]: #check that the SINCE is marked with True to use it
+                  firstDateToCall = str(sinceThisMap)
+                  #if I have taken a date from the SINCE, this is not in format YYYY-MM-DD HH24:MI:SS
+                  #remove from the date string the part of milliseconds
+                  #find the last column :
+                  firstDateToCall_lastColumnIdx = firstDateToCall.rfind(":")
+                  firstDateToCall = firstDateToCall[:firstDateToCall_lastColumnIdx+3]
+
+            lastDateToCall = endDate
+            if mapIdx != (len( OneChannelInfo )-1): #the since has also to be used to stop retrieving data for an ID, but only if the SINCE is not the last one
+               sinceNextMap = OneChannelInfo[mapIdx+1][2]
+               if sinceNextMap < endDate:
+                  if OneChannelInfo[mapIdx+1][3]: #check that the SINCE is marked with True to use it
+                     lastDateToCall = str(sinceNextMap)
+                     #if I have taken a date from the SINCE, this is not in format YYYY-MM-DD HH24:MI:SS
+                     #remove from the date string the part of milliseconds
+                     #find the last column :
+                     lastDateToCall_lastColumnIdx = lastDateToCall.rfind(":")          
+                     lastDateToCall = lastDateToCall[:lastDateToCall_lastColumnIdx+3]
+
             if monitorFlag == "HV":
-               imonRealElem = result[6]
+               queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP, ACTUAL_IMONREAL from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( '" + str(firstDateToCall) + "', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( '" + str(lastDateToCall) + "', 'YYYY-MM-DD HH24:MI:SS')"
+            if monitorFlag == "LV":
+               queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( '" + str(firstDateToCall) + "', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( '" + str(lastDateToCall) + "', 'YYYY-MM-DD HH24:MI:SS')"
 
-            #for the final Tree I need dates in a  string format
-            dateElemString = str(dateElem)
+            #print( queryAll )
 
-            #take the first Date
-            if contData == 0:
-               startTs = result[0]
-               
-            tot_secondsDate = (dateElem - startTs).total_seconds()
-            #print("tot_secondsDate:", tot_secondsDate) #('tot_secondsDate:', 16512.532)
+#            if monitorFlag == "HV":
+#               queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP, ACTUAL_IMONREAL from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
+#            if monitorFlag == "LV":
+#               queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
 
-            #convert dateElem in a usable format
-            dateElemStr = str(dateElem)  #2017-04-01 00:00:32.439000 
-            #print("dateElemStr", dateElemStr)
-            if (dateElemStr.find(".") != -1): #if dot found
-               dotIdx = dateElemStr.index(".")
-               dateNoMicro = dateElemStr[:dotIdx]
-               micro = dateElemStr[dotIdx+1:] 
-            else:                             #if dot not found
-               dateNoMicro = dateElemStr
-               micro = "000000"
+            #queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from CMS_GEM_PVSS_COND.FWCAENCHANNELA1515 where  DPID = 55 and CHANGE_DATE > to_date( '2018-04-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date ( '2018-05-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"
 
-            da1 = ROOT.TDatime( dateNoMicro )
-            convertedDate = da1.Convert()            
-
-            floatMicro = "0." + micro
-            dateElemSQL = convertedDate + float(floatMicro)
-
-            #ATTENTION: I use ACTUAL_IMONREAL only if I have no info from ACTUAL_IMON
-            #ATTENTION2: for smonData I have 4 elements: the last is the date in string
-            if imonElem is not None:       #imon
-               tripleList = [ tot_secondsDate, dateElemSQL, imonElem ]
-               imonData.append( tripleList )
-            else:
+            cur.execute(queryAll)
+            curAllData = cur
+            for result in curAllData:
+               #print (result)
+               dateElem = result[0]
+               imonElem = result[1]
+               vmonElem = result[2]
+               smonElem = result[3]
+               isonElem = result[4] #it can be only 0 or 1
+               tempElem = result[5] #in celcius degrees
                if monitorFlag == "HV":
-                  if imonRealElem is not None:
-                     tripleList = [ tot_secondsDate, dateElemSQL, imonRealElem ]
-                     imonData.append( tripleList )
-            if vmonElem is not None:       #vmon
-               tripleList = [ tot_secondsDate, dateElemSQL, vmonElem ]
-               vmonData.append( tripleList )
-            if smonElem is not None:       #smon          
-               tripleList = [ tot_secondsDate, dateElemSQL, smonElem, dateElemString ]
-               smonData.append( tripleList )
-            if isonElem is not None:       #ison
-               tripleList = [ tot_secondsDate, dateElemSQL, isonElem ]
-               isonData.append( tripleList )
-            if tempElem is not None:       #temp
-               tripleList = [ tot_secondsDate, dateElemSQL, tempElem ]
-               tempData.append( tripleList )
-       
-            contData = contData + 1
+                  imonRealElem = result[6]
 
-         #print("imonData", imonData)
-         #print("vmonData", vmonData)
-         #print("smonData", smonData)
-         #print("isonData", isonData)
-         #print("tempData", tempData)
+               #for the final Tree I need dates in a  string format
+               dateElemString = str(dateElem)
 
-         print( chamberList[chIdx]+" "+channelName[channelIDIdx] +": Not sorted lists created: WAIT PLEASE!!")
+               #take the first Date
+               if contData == 0:
+                  startTs = result[0]
+                  
+               tot_secondsDate = (dateElem - startTs).total_seconds()
+               #print("tot_secondsDate:", tot_secondsDate) #('tot_secondsDate:', 16512.532)
 
-         #----------------SORT DATA-------------------------------------------------------
-         #after collecting all data (we are inside the loop over chambers)
-         #reorder data by date, the may not be in the correct time order
-         #sort data in each of the seven channels
+               #convert dateElem in a usable format
+               dateElemStr = str(dateElem)  #2017-04-01 00:00:32.439000 
+               #print("dateElemStr", dateElemStr)
+               if (dateElemStr.find(".") != -1): #if dot found
+                  dotIdx = dateElemStr.index(".")
+                  dateNoMicro = dateElemStr[:dotIdx]
+                  micro = dateElemStr[dotIdx+1:] 
+               else:                             #if dot not found
+                  dateNoMicro = dateElemStr
+                  micro = "000000"
 
-         imonSortList = sorted(imonData, key=lambda element: element[0]) #reorder using the internal list of imonData( element[0] is tot_secondsDate )
-         vmonSortList = sorted(vmonData, key=lambda element: element[0])
-         smonSortList = sorted(smonData, key=lambda element: element[0])
-         isonSortList = sorted(isonData, key=lambda element: element[0])
-         tempSortList = sorted(tempData, key=lambda element: element[0])
-      
-         for idx in range(len(imonSortList)):
-            now = imonSortList[idx][0]
-            after = imonSortList[idx][0]
-            if now > after:
-               print("ERROR: sort error in imonSortList")
+               da1 = ROOT.TDatime( dateNoMicro )
+               convertedDate = da1.Convert()            
 
-         for idx in range(len(vmonSortList)):
-            now = vmonSortList[idx][0]
-            after = vmonSortList[idx][0]
-            if now > after:
-               print("ERROR: sort error in vmonSortList")
+               floatMicro = "0." + micro
+               dateElemSQL = convertedDate + float(floatMicro)
 
-         for idx in range(len(smonSortList)):
-            now = smonSortList[idx][0]
-            after = smonSortList[idx][0]
-            if now > after:
-               print("ERROR: sort error in smonSortList")
+               #ATTENTION: I use ACTUAL_IMONREAL only if I have no info from ACTUAL_IMON
+               #ATTENTION2: for smonData I have 4 elements: the last is the date in string
+               if imonElem is not None:       #imon
+                  tripleList = [ tot_secondsDate, dateElemSQL, imonElem ]
+                  imonData.append( tripleList )
+               else:
+                  if monitorFlag == "HV":
+                     if imonRealElem is not None:
+                        tripleList = [ tot_secondsDate, dateElemSQL, imonRealElem ]
+                        imonData.append( tripleList )
+               if vmonElem is not None:       #vmon
+                  tripleList = [ tot_secondsDate, dateElemSQL, vmonElem, mapIdx ]
+                  vmonData.append( tripleList )
+               if smonElem is not None:       #smon          
+                  tripleList = [ tot_secondsDate, dateElemSQL, smonElem, dateElemString ]
+                  smonData.append( tripleList )
+               if isonElem is not None:       #ison
+                  tripleList = [ tot_secondsDate, dateElemSQL, isonElem ]
+                  isonData.append( tripleList )
+               if tempElem is not None:       #temp
+                  tripleList = [ tot_secondsDate, dateElemSQL, tempElem ]
+                  tempData.append( tripleList )
+          
+               contData = contData + 1
 
-         for idx in range(len(isonSortList)):
-            now = isonSortList[idx][0]
-            after = isonSortList[idx][0]
-            if now > after:
-               print("ERROR: sort error in isonSortList")
+            #print("imonData", imonData)
+            #print("vmonData", vmonData)
+            #print("smonData", smonData)
+            #print("isonData", isonData)
+            #print("tempData", tempData)
 
-         for idx in range(len(tempSortList)):
-            now = tempSortList[idx][0]
-            after = tempSortList[idx][0]
-            if now > after:
-               print("ERROR: sort error in tempSortList")
-      
-         print("   Lists sorted: WAIT PLAESE!!")
+            print( chamberList[chIdx]+" "+channelName[channelIdx] + " (Alias: " +aliasThisMap+"): Not sorted lists created: WAIT PLEASE!!")
 
-         #empty not sortedLists
-         imonData = []
-         vmonData = []
-         smonData = []
-         isonData = []
-         tempData = []
+            #----------------SORT DATA-------------------------------------------------------
+            #after collecting all data (we are inside the loop over chambers)
+            #reorder data by date, the may not be in the correct time order
+            #sort data in each of the seven channels
 
-         for idxElem in range(len(imonSortList)):
+            imonData = sorted(imonData, key=lambda element: element[0]) #reorder using the internal list of imonData( element[0] is tot_secondsDate )
+            vmonData = sorted(vmonData, key=lambda element: element[0])
+            smonData = sorted(smonData, key=lambda element: element[0])
+            isonData = sorted(isonData, key=lambda element: element[0])
+            tempData = sorted(tempData, key=lambda element: element[0])
+
+            print("   Lists sorted: WAIT PLEASE!!")
+ 
+         #----------------DUMP THE FIRST ELEMENT----------------------------------------------
+
+         #print("len imonSortList", len(imonSortList))
+         for idxElem in range(len(imonData)):
             secondAndThird = []
-            secondAndThird.append(imonSortList[idxElem][1])
-            secondAndThird.append(imonSortList[idxElem][2])
-            imonData.append(secondAndThird)
+            secondAndThird.append(imonData[idxElem][1])
+            secondAndThird.append(imonData[idxElem][2])
+            imonData[idxElem] = secondAndThird
 
-         for idxElem in range(len(vmonSortList)):
+         for idxElem in range(len(vmonData)):
             secondAndThird = []
-            secondAndThird.append(vmonSortList[idxElem][1])
-            secondAndThird.append(vmonSortList[idxElem][2])
-            vmonData.append(secondAndThird)
+            secondAndThird.append(vmonData[idxElem][1])
+            secondAndThird.append(vmonData[idxElem][2])
+            vmonData[idxElem] = secondAndThird
               
          #smon has: 1 = date for TGraphs, 2 = decaimal status, 3 = date in string format
-         for idxElem in range(len(smonSortList)):
+         for idxElem in range(len(smonData)):
             secondAndThird = []
-            secondAndThird.append(smonSortList[idxElem][1])
-            secondAndThird.append(int(smonSortList[idxElem][2]))
-            secondAndThird.append(smonSortList[idxElem][3])
-            smonData.append(secondAndThird)
+            secondAndThird.append(smonData[idxElem][1])
+            secondAndThird.append(int(smonData[idxElem][2]))
+            secondAndThird.append(smonData[idxElem][3])
+            smonData[idxElem] = secondAndThird
 
-         for idxElem in range(len(isonSortList)):
+         for idxElem in range(len(isonData)):
             secondAndThird = []
-            secondAndThird.append(isonSortList[idxElem][1])
-            secondAndThird.append(isonSortList[idxElem][2])
-            isonData.append(secondAndThird)
+            secondAndThird.append(isonData[idxElem][1])
+            secondAndThird.append(isonData[idxElem][2])
+            isonData[idxElem] = secondAndThird
 
-         for idxElem in range(len(tempSortList)):
+         for idxElem in range(len(tempData)):
             secondAndThird = []
-            secondAndThird.append(tempSortList[idxElem][1])
-            secondAndThird.append(tempSortList[idxElem][2])
-            tempData.append(secondAndThird)
+            secondAndThird.append(tempData[idxElem][1])
+            secondAndThird.append(tempData[idxElem][2])
+            tempData[idxElem] = secondAndThird
          
+         #END OF LOOP ON MAPS: still inside loop on channels 
          print("   Sorted lists filled!")
    
          #----------------CREATE HISTOGRAMS----------------------------------------------
@@ -667,11 +766,11 @@ def main():
          #declare histograms
          chamberNameRootFile = chamberList[chIdx].replace("-", "_")
 
-         Imonh1 = ROOT.TH1F(monitorFlag+"_ImonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_ImonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinImon, IMin, IMax)	
-         Vmonh1 = ROOT.TH1F(monitorFlag+"_VmonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_VmonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinVmon, VMin, VMax)	
-         Smonh1 = ROOT.TH1F(monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinStatus, StatusMin, StatusMax)	
-         Isonh1 = ROOT.TH1F(monitorFlag+"_IsonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_IsonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinIson, IsonMin, IsonMax)	
-         Temph1 = ROOT.TH1F(monitorFlag+"_TempChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", monitorFlag+"_TempChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_TH1", NBinTemp, TempMin, TempMax)	
+         Imonh1 = ROOT.TH1F(monitorFlag+"_ImonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", monitorFlag+"_ImonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", NBinImon, IMin, IMax)	
+         Vmonh1 = ROOT.TH1F(monitorFlag+"_VmonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", monitorFlag+"_VmonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", NBinVmon, VMin, VMax)	
+         Smonh1 = ROOT.TH1F(monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", NBinStatus, StatusMin, StatusMax)	
+         Isonh1 = ROOT.TH1F(monitorFlag+"_IsonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", monitorFlag+"_IsonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", NBinIson, IsonMin, IsonMax)	
+         Temph1 = ROOT.TH1F(monitorFlag+"_TempChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", monitorFlag+"_TempChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", NBinTemp, TempMin, TempMax)	
       
          #axis titles
          Imonh1.GetXaxis().SetTitle(IUnitMeasure)
@@ -811,29 +910,29 @@ def main():
          Temptg1.SetMarkerSize(1)
 
          #TGraph names
-         Imontg1.SetName(monitorFlag+"_ImonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
-         Vmontg1.SetName(monitorFlag+"_VmonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
-         Smontg1.SetName(monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
-         Isontg1.SetName(monitorFlag+"_IsonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
-         Temptg1.SetName(monitorFlag+"_TempChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Imontg1.SetName(monitorFlag+"_ImonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
+         Vmontg1.SetName(monitorFlag+"_VmonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
+         Smontg1.SetName(monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
+         Isontg1.SetName(monitorFlag+"_IsonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
+         Temptg1.SetName(monitorFlag+"_TempChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
 
          #TGraph title
-         Imontg1.SetTitle(monitorFlag+"_ImonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
-         Vmontg1.SetTitle(monitorFlag+"_VmonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
-         Smontg1.SetTitle(monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
-         Isontg1.SetTitle(monitorFlag+"_IsonChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
-         Temptg1.SetTitle(monitorFlag+"_TempChamber"+chamberNameRootFile+"_"+channelName[channelIDIdx]+"_UTC_time")
+         Imontg1.SetTitle(monitorFlag+"_ImonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
+         Vmontg1.SetTitle(monitorFlag+"_VmonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
+         Smontg1.SetTitle(monitorFlag+"_StatusChamber"+chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
+         Isontg1.SetTitle(monitorFlag+"_IsonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
+         Temptg1.SetTitle(monitorFlag+"_TempChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_UTC_time")
 
          #Y axis
          if monitorFlag == "HV":
             currentBrak = "[uA]"
          if monitorFlag == "LV":
             currentBrak = "[A]"
-         Imontg1.GetYaxis().SetTitle("Imon "+chamberNameRootFile+" "+channelName[channelIDIdx]+" "+currentBrak)
-         Vmontg1.GetYaxis().SetTitle("Vmon "+chamberNameRootFile+" "+channelName[channelIDIdx]+" [V]")
-         Smontg1.GetYaxis().SetTitle("Status code "+chamberNameRootFile+" "+channelName[channelIDIdx])
-         Isontg1.GetYaxis().SetTitle("Ison code: 0=ON 1=OFF "+chamberNameRootFile+" "+channelName[channelIDIdx])
-         Temptg1.GetYaxis().SetTitle("Temperature "+chamberNameRootFile+" "+channelName[channelIDIdx]+" [Celsius degrees]")
+         Imontg1.GetYaxis().SetTitle("Imon "+chamberNameRootFile+" "+channelName[channelIdx]+" "+currentBrak)
+         Vmontg1.GetYaxis().SetTitle("Vmon "+chamberNameRootFile+" "+channelName[channelIdx]+" [V]")
+         Smontg1.GetYaxis().SetTitle("Status code "+chamberNameRootFile+" "+channelName[channelIdx])
+         Isontg1.GetYaxis().SetTitle("Ison code: 0=ON 1=OFF "+chamberNameRootFile+" "+channelName[channelIdx])
+         Temptg1.GetYaxis().SetTitle("Temperature "+chamberNameRootFile+" "+channelName[channelIdx]+" [Celsius degrees]")
 
          #X axis
          Imontg1.GetXaxis().SetTimeDisplay(1)
@@ -1285,7 +1384,7 @@ def main():
 
 
          #---------------------TREE DECLARATION------------------------------------------------
-         StatusTree = ROOT.TTree(monitorFlag+"_StatusTree"+chamberNameRootFile+"_"+channelName[channelIDIdx], monitorFlag+"_StatusTree"+chamberNameRootFile+"_"+channelName[channelIDIdx])
+         StatusTree = ROOT.TTree(monitorFlag+"_StatusTree"+chamberNameRootFile+"_"+channelName[channelIdx], monitorFlag+"_StatusTree"+chamberNameRootFile+"_"+channelName[channelIdx])
           
          smonRootTimesDate   = ROOT.vector('string')()
          smonRootDecimalStat = ROOT.vector('string')()

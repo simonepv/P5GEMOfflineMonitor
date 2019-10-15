@@ -1,2 +1,2 @@
-SC01-Layer1
-SC01-Layer2
+SC01-Layer1:GEMINI01L1
+SC01-Layer2:Gemini01-L2
