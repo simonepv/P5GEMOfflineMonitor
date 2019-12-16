@@ -11,9 +11,95 @@ import argparse
 from argparse import RawTextHelpFormatter
 from sys import exit
 
-#argparse
-parser = argparse.ArgumentParser(description='''Retrieve from the database the vmon, imon, status, ison and temperature informations \nfor GEM in P5 and create a root file for the asked chambers. \nTo execute the code just type \n\npython StatusGEMP5HV.py \n\nand then insert the Start date and the End date of the monitor scan. \nPut the name of chosen chambers in the file P5GEMChosenChambers_HV.txt, made with aliases''', formatter_class=RawTextHelpFormatter)
+r"""
+``GEMDCSP5Monitor.py`` --- Retrieve data for GEM detectors in P5 from database
+============================================================================
+Synopsis
+--------
+**GEMDCSP5Monitor.py** sta_period end_period monitorFlag sliceTestFlag
 
+Twiki
+-------------
+TO BE DONE
+
+Environment
+--------------
+This code runs on the 904DAQ machine 
+
+First of all you have to enter in your lxplus area and then connect to the 904DAQ machine
+
+Now you have to ensure that in your area you have set two variables for access
+GEM_P5_DB_NAME and GEM_P5_DB_ACCOUNT which contain the credentials to access to CMS P5 database
+
+Description
+-----------
+This code retrieves Vmon, Imon, Status, Ison and Temperature informations for HV or LV for GEM detectors in P5
+Data are taken from CMS database
+
+To execute this code you have first to put in the one file the alias of chambers you want to look: 
+File to modify:
+   In case you want data for the present situation in P5
+      HV data --> file to modifiy: P5GEMChosenChambers_HV.txt
+      LV data --> file to modifiy: P5GEMChosenChambers_LV.txt
+   In case you want data for the slice test period
+      HV data --> file to modifiy: P5GEMChosenChambers_sliceTest_HV.txt
+      LV data --> file to modifiy: P5GEMChosenChambers_sliceTest_LV.txt
+
+Mandatory arguments
+-------------------
+The following list shows the mandatory inputs that must be supplied to execute
+the script.
+.. program:: GEMDCSP5Monitor.py
+.. option:: [*sta_period*]
+.. option:: [*end_period*]
+.. option:: [*monitorFlag*]
+.. option:: [*sliceTestFlag*]
+
+   sta_period, end_period, monitorFlag and sliceTestFlag must always be passed
+   sta_period is the UTC Start Date of the monitor: has to be inserted in format YYYY-MM-DD HH24:mm:ss (e.g. 2018-04-01_15:22:31)
+   end_period is the UTC  End  Date of the monitor: has to be inserted in format YYYY-MM-DD HH24:mm:ss (e.g. 2018-04-02_15:22:31)
+   monitorFlag tell if data must be read for HV or LV (monitorFlag accepts only 'HV' or 'LV' string) (e.g. HV)
+   sliceTestFlag tells if data must be taken from slice test period or not   
+   (sliceTestFlag = 0 : I use data for current situation in P5, sliceTestFlag = 1 : I use data collected during the slice test) (e.g. 0)
+
+Example
+------------------
+python GEMDCSP5Monitor.py 2018-04-01_15:22:31 2018-04-02_15:22:31 HV 1
+
+"""
+descrString = "Twiki\n------------------------\nTO BE DONE"
+descrString = descrString + "\n\nEnvironment\n------------------------\nThis code runs on the 904DAQ machine\n"
+descrString = descrString + "\nFirst of all you have to enter in your lxplus area and then connect to the 904DAQ machine"
+descrString = descrString + "\nNow you have to ensure that in your area you have set two variables for access"
+descrString = descrString + "\nGEM_P5_DB_NAME and GEM_P5_DB_ACCOUNT which contain the credentials to access to CMS P5 database"
+descrString = descrString + "\n\nDescription\n------------------------\nRetrieve from the database the vmon, imon, status, isON and temperature informations\n"
+descrString = descrString + "To run this code you first have to put in one file the alias of chambers you want"
+descrString = descrString + "\n   In case you want data for the present situation in P5"
+descrString = descrString + "\n      HV data --> file to modifiy: P5GEMChosenChambers_HV.txt"
+descrString = descrString + "\n      LV data --> file to modifiy: P5GEMChosenChambers_LV.txt"
+descrString = descrString + "\n   In case you want data for the slice test period"
+descrString = descrString + "\n      HV data --> file to modifiy: P5GEMChosenChambers_sliceTest_HV.txt"
+descrString = descrString + "\n      LV data --> file to modifiy: P5GEMChosenChambers_sliceTest_LV.txt"
+descrString = descrString + "\n\nExample\n------------------------"
+descrString = descrString + "\npython GEMDCSP5Monitor.py sta_period end_period monitorFlag sliceTestFlag"
+descrString = descrString + "\npython GEMDCSP5Monitor.py 2018-04-01_15:22:31 2018-04-02_15:22:31 HV 1"
+
+#argparse
+parser = argparse.ArgumentParser(description=descrString, formatter_class=RawTextHelpFormatter)
+
+parser.add_argument("sta_period", type=str, 
+       help="UTC Start Date of the monitor, has to be inserted in format YYYY-MM-DD HH24:mm:ss (e.g. 2018-04-01_15:22:31)", 
+       metavar="sta_period")
+parser.add_argument("end_period", type=str,
+       help="UTC End Date of the monitor, has to be inserted in format YYYY-MM-DD HH24:mm:ss (e.g. 2018-04-02_15:22:31)", 
+       metavar="end_period")
+parser.add_argument("monitorFlag", type=str,
+       help="monitorFlag tell if data must be read for HV or LV (monitorFlag accepts only 'HV' or 'LV' string)",
+       metavar="monitorFlag")
+parser.add_argument("sliceTestFlag", type=int,
+       help="sliceTestFlag tells if data must be taken from slice test period or not \n(sliceTestFlag = 0 : I use data for current situation in P5, sliceTestFlag = 1 : I use data collected during the slice test)",
+       metavar="sliceTestFlag")
+ 
 args = parser.parse_args()
 
 #import DB credentials
@@ -27,11 +113,14 @@ dbAccount = os.getenv("GEM_P5_DB_ACCOUNT")
 def main():
    #Reminder: in the DB the DeltaV between pins are saved, not the V from ground
    #-------------KIND OF MONITOR FLAG----------------------------------------
-   monitorFlag = "HV"
+   #monitorFlag = "HV"
    #monitorFlag = "LV"
+   monitorFlag = args.monitorFlag
+
    #-------------DEVELOPER SLICE TEST FLAG------------------------------------
-   sliceTestFlag = 1 #1 uses the slice test mapping properties
+   #sliceTestFlag = 1 #1 uses the slice test mapping properties
    #sliceTestFlag = 0 #0 for real P5 conditions
+   sliceTestFlag = args.sliceTestFlag
    
    #-------------FILE WITH CHOSEN CHAMBERS------------------------------------
    if monitorFlag == "HV":
@@ -69,10 +158,16 @@ def main():
          mappingFileName = "GEMP5MappingLV_sliceTest.txt"
 
    #-------------PREPARE START AND END DATE------------------------------------
-   sta_period = raw_input("Insert UTC start time in format YYYY-MM-DD HH:mm:ss\n")
-   type(sta_period)
-   end_period = raw_input("Insert UTC end time in format YYYY-MM-DD HH:mm:ss\n")
-   type(end_period)
+   #sta_period = raw_input("Insert UTC start time in format YYYY-MM-DD HH:mm:ss\n")
+   #type(sta_period)
+   #end_period = raw_input("Insert UTC end time in format YYYY-MM-DD HH:mm:ss\n")
+   #type(end_period)
+
+   sta_period = args.sta_period
+   end_period = args.end_period
+
+   sta_period.replace("_", " ")
+   end_period.replace("_", " ")
    
    start=sta_period.replace(" ", "_")
    end=end_period.replace(" ", "_")
@@ -82,7 +177,7 @@ def main():
    #add ' at beginning and end to have the date in the format for the query
    sta_period = "'" + sta_period + "'"
    end_period = "'" + end_period + "'"
-  
+ 
    startDate = datetime(int(start[:4]), int(start[5:7]), int(start[8:10]), int(start[11:13]), int(start[14:16]), int(start[17:]) )
    endDate   = datetime(int(end[:4]), int(end[5:7]), int(end[8:10]), int(end[11:13]), int(end[14:16]), int(end[17:]) )
  
@@ -275,7 +370,7 @@ def main():
    #print ( "allMappingList", allMappingList )
 
    #------------DATABASE CONNECT------------------------------------------------
-   db = cx_Oracle.connect( dbAccount+"@"+dbName )
+   db = cx_Oracle.connect( dbAccount+dbName )
    cur = db.cursor()
 
    #-------------CHOOSE THE NEEDED MAPPING LINES FOR EACH REQUESTED CHAMBER----
@@ -333,9 +428,14 @@ def main():
                         query = "select SINCE, DPE_NAME, ALIAS from CMS_GEM_PVSS_COND.ALIASES where DPE_NAME='"+str(OneChannelOneDP)+".' and ALIAS='"+str(OneChannelMapAlias)+"'"
                         cur.execute(query)
                         curALIAS = cur
+                        boolNoSinceSeen = True
                         for result in curALIAS:
+                           boolNoSinceSeen = False
                            OneChannelOneSince = result[0]
-                           
+                        #in case there is nothing in curAlias                          
+                        if boolNoSinceSeen:
+                           OneChannelOneSince = datetime( 1970, 01, 01, 00, 00, 01 ) #date used for since if there is nothing
+ 
                         DPAliasSinceOneChannel = []
                         DPAliasSinceOneChannel.append(OneChannelOneDP)
                         DPAliasSinceOneChannel.append(OneChannelOneShortAlias)
@@ -525,6 +625,7 @@ def main():
    for chIdx in range(len(chamberList)):
       #create the first level of directories: one for each chamber
       chamberNameRootFile = chamberList[chIdx].replace("-", "_")
+      chamberNameRootFile = chamberNameRootFile.replace("/", "_")
       firstDir = f1.mkdir(chamberNameRootFile)
       firstDir.cd()
 
@@ -747,8 +848,8 @@ def main():
             NBinImon = int(IMax-IMin)
             IUnitMeasure = "I [A]"
     
-            VMin = -50  #V
-            VMax = 200  #V
+            VMin = -10  #V
+            VMax = 10  #V
             NBinVmon = int((VMax-VMin)/10)
     
             StatusMin = 0
@@ -765,6 +866,7 @@ def main():
     
          #declare histograms
          chamberNameRootFile = chamberList[chIdx].replace("-", "_")
+         chamberNameRootFile = chamberNameRootFile.replace("/", "_")
 
          Imonh1 = ROOT.TH1F(monitorFlag+"_ImonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", monitorFlag+"_ImonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", NBinImon, IMin, IMax)	
          Vmonh1 = ROOT.TH1F(monitorFlag+"_VmonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", monitorFlag+"_VmonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", NBinVmon, VMin, VMax)	
@@ -1415,7 +1517,7 @@ def main():
    print(fileName+ " has been created.")
    print("It is organised in directories: to change directory use DIRNAME->cd()")
    print('To draw a TH1 or a TGraph: OBJNAME->Draw()')
-   print('To scan the root file use for example:\nHV_StatusTree2_2_Top_G3Bot->Scan("","","colsize=26")')
+   print('To scan the TTree use for example:\nHV_StatusTree2_2_Top_G3Bot->Scan("","","colsize=26")')
    print("ALL MONITOR TIMES ARE IN UTC, DCS TIMES ARE IN CET")
 
 
