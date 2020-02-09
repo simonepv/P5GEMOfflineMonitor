@@ -5,6 +5,7 @@ import ROOT
 import os
 import time
 from datetime import datetime
+from datetime import timedelta
 from operator import itemgetter
 from array import array
 import argparse
@@ -202,9 +203,16 @@ def main():
          mappingChangeDate.append( secondMappingChange )
 
    if sliceTestFlag == 0:
-      firstMappingChange = datetime( 2019, 10, 01, 00, 00, 01 )
+      if monitorFlag == "HV":
+         firstMappingChange = datetime( 2019, 10, 01, 00, 00, 01 )
+         #secondMappingChange = datetime( 2020, 01, 27, 11, 30, 01 )#time always in UTC
       
-      mappingChangeDate.append(firstMappingChange)
+         mappingChangeDate.append(firstMappingChange)
+         #mappingChangeDate.append(secondMappingChange)
+      if monitorFlag == "LV":
+         firstMappingChange = datetime( 2019, 10, 01, 00, 00, 01 )
+
+         mappingChangeDate.append(firstMappingChange)
 
    lastDate = datetime( 2050, 01, 01, 00, 00, 01)
    mappingChangeDate.append( lastDate )
@@ -380,8 +388,6 @@ def main():
       OneChamberAllDPs = []
       for allMapIdx in range(len(allMappingList)): #loop on all maps
          OneMapAllDPs = []
-         #if boolMapping[allMapIdx]==0: #if the map is not used don't charge it
-         #   continue
          for oneMapIdx in range(len(allMappingList[allMapIdx])): #loop on One Map
             #take one line of the mapping 
             oneMapLine = allMappingList[allMapIdx][oneMapIdx]
@@ -435,7 +441,11 @@ def main():
                         #in case there is nothing in curAlias                          
                         if boolNoSinceSeen:
                            OneChannelOneSince = datetime( 1970, 01, 01, 00, 00, 01 ) #date used for since if there is nothing
- 
+                           #if I have more than one map I add one second to the dummyDate
+                           #if ( allMapIdx > 0 ):
+                           #   secondsToAdd = allMapIdx + 1
+                           #   OneChannelOneSince = datetime( 1970, 01, 01, 00, 00, secondsToAdd ) #date used for since if there is nothing
+
                         DPAliasSinceOneChannel = []
                         DPAliasSinceOneChannel.append(OneChannelOneDP)
                         DPAliasSinceOneChannel.append(OneChannelOneShortAlias)
@@ -499,6 +509,7 @@ def main():
          for mapIdx in range(len(OneChamberAllDPsWanted[channelIdx])):
             usedMap = False
             sinceMap = OneChamberAllDPsWanted[channelIdx][mapIdx][2]
+            print ( "sinceMap", sinceMap )
             pairDateFalse = []
             pairDateFalse.append(sinceMap)
             pairDateFalse.append(False)
@@ -526,8 +537,9 @@ def main():
             if (sortIdx > startIdx and sortIdx < endIdx):
                sortDates[sortIdx][1] = True
 
-         #print("sortDates", sortDates)
-         
+         print("sortDates", sortDates)
+         print("OneChamberAllDPsWanted", OneChamberAllDPsWanted[channelIdx][mapIdx])
+
          #add the true or false to the OneChamberAllDPsWanted list
          for mapIdx in range(len(OneChamberAllDPsWanted[channelIdx])):
             sinceDate = OneChamberAllDPsWanted[channelIdx][mapIdx][2]
@@ -535,10 +547,11 @@ def main():
             for sortIdx in range(len(sortDates)):
                #if the dates in two lists are the same I add the boolean
                if sortDates[sortIdx][0] == OneChamberAllDPsWanted[channelIdx][mapIdx][2]:
+                  print ( "sortDateMERDA", sortDates[sortIdx][1] )
                   threeElements.append(sortDates[sortIdx][1]) #the boolean is in position 1
                   OneChamberAllDPsWanted[channelIdx][mapIdx] = threeElements         
          
-      #print("OneChamberAllDPsWanted with true or false", OneChamberAllDPsWanted)
+      print("OneChamberAllDPsWanted with true or false", OneChamberAllDPsWanted)
 
       #--------------------------FIND IDs------------------------------------------------------------------------
       #DPE_NAME has a dot at the end of channellXXX, DPNAME has not a dot
@@ -565,7 +578,7 @@ def main():
             #now OneChamberAllDPsWanted[channelIdx][mapIdx] is made by a list
             #[DP, ALIASSHORT, SINCE, BOOL for the since to use, DPID]
 
-      #print("OneChamberAllDPsWanted with also IDs", OneChamberAllDPsWanted)
+      print("OneChamberAllDPsWanted with also IDs", OneChamberAllDPsWanted)
     
       AllChosenChamberAllDPsWanted.append(OneChamberAllDPsWanted)
 
@@ -642,6 +655,61 @@ def main():
          if sliceTestFlag == 1:
             channelName = ["L1_VFAT", "L1_OH2V", "L1_OH4V", "L2_VFAT", "L2_OH2V", "L2_OH4V"]
 
+      #declare one multigraph with all channel
+      Imontmultig1 = ROOT.TMultiGraph()
+      titleMultig1 = chamberList[chIdx] + "; ;Imon (#mu A)"
+      Imontmultig1.SetName( chamberList[chIdx]+"_Imon_AllChannels" )
+      Imontmultig1.SetTitle( titleMultig1 )
+      minDateImonMultig = 9999999
+      maxDateImonMultig = 1
+      minValImonMultig = 999999
+      maxValImonMultig = -999999
+
+      Vmontmultig1 = ROOT.TMultiGraph()
+      titleMultig1 = chamberList[chIdx] + "; ;#Delta Vmon (V)"
+      Vmontmultig1.SetName( chamberList[chIdx]+"_Vmon_AllChannels" )
+      Vmontmultig1.SetTitle( titleMultig1 )
+      minDateVmonMultig = 999999
+      maxDateVmonMultig = 1
+      minValVmonMultig = 999999
+      maxValVmonMultig = -999999
+
+      Smontmultig1 = ROOT.TMultiGraph()
+      titleMultig1 = chamberList[chIdx] + "; ;Status code"
+      Smontmultig1.SetName( chamberList[chIdx]+"_Smon_AllChannels" )
+      Smontmultig1.SetTitle( titleMultig1 )
+      minDateSmonMultig = 999999
+      maxDateSmonMultig = 1
+      minValSmonMultig = 999999
+      maxValSmonMultig = -999999
+
+      Isontmultig1 = ROOT.TMultiGraph()
+      titleMultig1 = chamberList[chIdx] + "; ;IsOn code (0=OFF, 1=ON)"
+      Isontmultig1.SetName( chamberList[chIdx]+"_Ison_AllChannels" )
+      Isontmultig1.SetTitle( titleMultig1 )
+      minDateIsonMultig = 999999
+      maxDateIsonMultig = 1
+      minValIsonMultig = 999999
+      maxValIsonMultig = -999999
+
+      Temptmultig1 = ROOT.TMultiGraph()
+      titleMultig1 = chamberList[chIdx] + "; ;Temperature (Celsius degrees)"
+      Temptmultig1.SetName( chamberList[chIdx]+"_Temp_AllChannels" )
+      Temptmultig1.SetTitle( titleMultig1 )
+      minDateTempMultig = 999999
+      maxDateTempMultig = 1
+      minValTempMultig = 999999
+      maxValTempMultig = -999999
+
+      #Declare one Legend for the multigraphs
+      legendMultiImon = ROOT.TLegend(0.55,0.20,0.88,0.382)
+      legendMultiImon.SetTextSize(0.025);
+      legendMultiImon.SetTextFont(42);
+
+      legendMultiVmon = ROOT.TLegend(0.55,0.665,0.88,0.88)
+      legendMultiVmon.SetTextSize(0.025);
+      legendMultiVmon.SetTextFont(42);
+
       for channelIdx in range(len(AllChosenChamberAllDPsWanted[chIdx])):
          OneChannelInfo = AllChosenChamberAllDPsWanted[chIdx][channelIdx]
          imonData = [] #store two Dates and Imon in pair (0th Date in millisecond from the first element stored, 1st Date as wanted by root, 2nd Imon)
@@ -652,7 +720,7 @@ def main():
 
          #look how many SINCE I have in this channel
          howManySince = len(OneChannelInfo)
-         
+
          contData = 0
          #for each chnnel of a chamber there are more than one ID
          for mapIdx in range(len( OneChannelInfo )):
@@ -686,7 +754,8 @@ def main():
             if monitorFlag == "LV":
                queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( '" + str(firstDateToCall) + "', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( '" + str(lastDateToCall) + "', 'YYYY-MM-DD HH24:MI:SS')"
 
-            #print( queryAll )
+            print ( "OneChannelInfo", OneChannelInfo )
+            print( "query", queryAll )
 
 #            if monitorFlag == "HV":
 #               queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP, ACTUAL_IMONREAL from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
@@ -746,7 +815,7 @@ def main():
                         tripleList = [ tot_secondsDate, dateElemSQL, imonRealElem ]
                         imonData.append( tripleList )
                if vmonElem is not None:       #vmon
-                  tripleList = [ tot_secondsDate, dateElemSQL, vmonElem, mapIdx ]
+                  tripleList = [ tot_secondsDate, dateElemSQL, vmonElem, mapIdx, dateElemStr ]
                   vmonData.append( tripleList )
                if smonElem is not None:       #smon          
                   tripleList = [ tot_secondsDate, dateElemSQL, smonElem, dateElemString ]
@@ -780,6 +849,20 @@ def main():
             tempData = sorted(tempData, key=lambda element: element[0])
 
             print("   Lists sorted: WAIT PLEASE!!")
+
+            #look for Vmon values greater than 1000V
+            fileVolts = open("Over1000Volts.txt","a") 
+            chchBool = False
+            
+            for vIdx in range(len(vmonData)):
+               if ( vmonData[vIdx][2] >= 1000 ):
+                  stringChamberChannel = chamberList[chIdx]+"\t"+channelName[channelIdx]+"\t"+aliasThisMap+"\n"
+                  stringValues = "Date:"+str(vmonData[vIdx][4])+"\t"+" Vmon:"+str(vmonData[vIdx][2])+"\n"
+                  if ( not chchBool ): #write the stringChamberChannel only one time 
+                     fileVolts.write( stringChamberChannel )
+                     chchBool = True
+                  fileVolts.write( stringValues )
+            fileVolts.close()
  
          #----------------DUMP THE FIRST ELEMENT----------------------------------------------
 
@@ -973,42 +1056,123 @@ def main():
             tempData_values.append(dummyNumber) 
             tempData.append( dummyPair ) 
 
+         #find minimum and maximum date between all channels of one chamber
+         if ( imonData_dates[0] < minDateImonMultig ):
+            minDateImonMultig = imonData_dates[0]-1
+         if ( imonData_dates[-1] > maxDateImonMultig  ):
+            maxDateImonMultig = imonData_dates[-1]+1
+
+         if ( vmonData_dates[0] < minDateVmonMultig ):
+            minDateVmonMultig = vmonData_dates[0]-1
+         if ( vmonData_dates[-1] > maxDateVmonMultig  ):
+            maxDateVmonMultig = vmonData_dates[-1]+1
+
+         if ( smonData_dates[0] < minDateSmonMultig ):
+            minDateSmonMultig = smonData_dates[0]-1
+         if ( smonData_dates[-1] > maxDateSmonMultig  ):
+            maxDateSmonMultig = smonData_dates[-1]+1
+
+         if ( isonData_dates[0] < minDateIsonMultig ):
+            minDateIsonMultig = isonData_dates[0]-1
+         if ( isonData_dates[-1] > maxDateIsonMultig  ):
+            maxDateIsonMultig = isonData_dates[-1]+1
+
+         if ( tempData_dates[0] < minDateTempMultig ):
+            minDateTempMultig = tempData_dates[0]-1
+         if ( tempData_dates[-1] > maxDateTempMultig  ):
+            maxDateTempMultig = tempData_dates[-1]+1
+
+         #find the maximum and minimum value 
+         if ( min( imonData_values ) < minValImonMultig ):
+            minValImonMultig = min( imonData_values ) 
+         if ( max( imonData_values ) > maxValImonMultig ):
+            maxValImonMultig = max( imonData_values )
+
+         if ( min( vmonData_values ) < minValVmonMultig ):
+            minValVmonMultig = min( vmonData_values ) 
+         if ( max( vmonData_values ) > maxValVmonMultig ):
+            maxValVmonMultig = max( vmonData_values )
+
+         if ( min( smonData_values ) < minValSmonMultig ):
+            minValSmonMultig = min( smonData_values ) 
+         if ( max( smonData_values ) > maxValSmonMultig ):
+            maxValSmonMultig = max( smonData_values )
+
+         if ( min( tempData_values ) < minValTempMultig ):
+            minValTempMultig = min( tempData_values ) 
+         if ( max( tempData_values ) > maxValTempMultig ):
+            maxValTempMultig = max( tempData_values )
+
          #declare TGraphs
          Imontg1 = ROOT.TGraph(len(imonData),imonData_dates,imonData_values)
          Vmontg1 = ROOT.TGraph(len(vmonData),vmonData_dates,vmonData_values)
          Smontg1 = ROOT.TGraph(len(smonData),smonData_dates,smonData_values)
          Isontg1 = ROOT.TGraph(len(isonData),isonData_dates,isonData_values)
          Temptg1 = ROOT.TGraph(len(tempData),tempData_dates,tempData_values)
+         
+         #prepeare one color for each channel
+         markColor = 4 #default
+         markNum = 20 #default
+         transWhite = ROOT.TColor.GetColorTransparent(0, 0)
+         if monitorFlag == "HV":
+            if ( channelName[channelIdx].find("G3Bot") != -1):            
+               markColor = 1 #black 
+               markNum = 20 
+            if ( channelName[channelIdx].find("G3Top") != -1):            
+               markColor = 2 #red
+               markNum = 21 
+            if ( channelName[channelIdx].find("G2Bot") != -1):            
+               markColor = 3 #green
+               markNum = 22 
+            if ( channelName[channelIdx].find("G2Top") != -1):            
+               markColor = 4 #blue
+               markNum = 23 
+            if ( channelName[channelIdx].find("G1Bot") != -1):            
+               markColor = 6 #pink
+               markNum = 29 
+            if ( channelName[channelIdx].find("G1Top") != -1):            
+               markColor = 7 #light blue
+               markNum = 33 
+            if ( channelName[channelIdx].find("Drift") != -1):            
+               markColor = 401 #darkYellow
+               markNum = 34 
+         if monitorFlag == "LV":
+            if ( channelName[channelIdx].find("L1") != -1):            
+               markColor = 2 #red
+               markNum = 20 
+            if ( channelName[channelIdx].find("L2") != -1):            
+               markColor = 4 #blue
+               markNum = 21 
 
          #setting for TGraphs
-         Imontg1.SetLineColor(2)
-         Imontg1.SetLineWidth(4)
-         Imontg1.SetMarkerColor(4)
-         Imontg1.SetMarkerStyle(21)
+         #Imontg1.SetLineColor(transWhite)
+         Imontg1.SetLineWidth(0)
+         Imontg1.SetMarkerColor(markColor)
+         Imontg1.SetMarkerStyle(markNum)
          Imontg1.SetMarkerSize(1)
 
-         Vmontg1.SetLineColor(2)
-         Vmontg1.SetLineWidth(4)
-         Vmontg1.SetMarkerColor(4)
-         Vmontg1.SetMarkerStyle(21)
+         #Vmontg1.SetLineColor(transWhite)
+         Vmontg1.SetLineWidth(0)
+         Vmontg1.SetMarkerColor(markColor)
+         Vmontg1.SetMarkerStyle(markNum)
          Vmontg1.SetMarkerSize(1)
 
-         Smontg1.SetLineColor(2)
-         Smontg1.SetLineWidth(4)
-         Smontg1.SetMarkerColor(4)
-         Smontg1.SetMarkerStyle(21)
+         #Smontg1.SetLineColor(transWhite)
+         Smontg1.SetLineWidth(0)
+         Smontg1.SetMarkerColor(markColor)
+         Smontg1.SetMarkerStyle(markNum)
          Smontg1.SetMarkerSize(1)
 
-         Isontg1.SetLineColor(2)
-         Isontg1.SetLineWidth(4)
-         Isontg1.SetMarkerColor(4)
-         Isontg1.SetMarkerStyle(21)
+         #Isontg1.SetLineColor(transWhite)
+         Isontg1.SetLineWidth(0)
+         Isontg1.SetMarkerColor(markColor)
+         Isontg1.SetMarkerStyle(markNum)
          Isontg1.SetMarkerSize(1)
 
-         Temptg1.SetLineColor(2)
-         Temptg1.SetLineWidth(4)
-         Temptg1.SetMarkerColor(4)
-         Temptg1.SetMarkerStyle(21)
+         #Temptg1.SetLineColor(transWhite)
+         Temptg1.SetLineWidth(0)
+         Temptg1.SetMarkerColor(markColor)
+         Temptg1.SetMarkerStyle(markNum)
          Temptg1.SetMarkerSize(1)
 
          #TGraph names
@@ -1031,7 +1195,8 @@ def main():
          if monitorFlag == "LV":
             currentBrak = "[A]"
          Imontg1.GetYaxis().SetTitle("Imon "+chamberNameRootFile+" "+channelName[channelIdx]+" "+currentBrak)
-         Vmontg1.GetYaxis().SetTitle("Vmon "+chamberNameRootFile+" "+channelName[channelIdx]+" [V]")
+         #Vmontg1.GetYaxis().SetTitle("Vmon "+chamberNameRootFile+" "+channelName[channelIdx]+" [V]")
+         Vmontg1.GetYaxis().SetTitle("#Delta Vmon [V]")
          Smontg1.GetYaxis().SetTitle("Status code "+chamberNameRootFile+" "+channelName[channelIdx])
          Isontg1.GetYaxis().SetTitle("Ison code: 0=ON 1=OFF "+chamberNameRootFile+" "+channelName[channelIdx])
          Temptg1.GetYaxis().SetTitle("Temperature "+chamberNameRootFile+" "+channelName[channelIdx]+" [Celsius degrees]")
@@ -1061,6 +1226,35 @@ def main():
          Smontg1.Write()
          Isontg1.Write()
          Temptg1.Write()
+
+         #add graphs to multigraphs
+         Imontmultig1.Add(Imontg1)
+         Vmontmultig1.Add(Vmontg1)
+         Smontmultig1.Add(Smontg1)
+         Isontmultig1.Add(Isontg1)
+         Temptmultig1.Add(Temptg1)
+
+         if ( channelName[channelIdx] == "G3Bot" ):
+            legendMultiImon.AddEntry( Imontg1, "GEM-3 bot electrode", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "#Delta V Induction gap", "p" )   
+         if ( channelName[channelIdx] == "G3Top" ):
+            legendMultiImon.AddEntry( Imontg1, "GEM-3 top electrode", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "#Delta V GEM-3 foil", "p" )   
+         if ( channelName[channelIdx] == "G2Bot" ):
+            legendMultiImon.AddEntry( Imontg1, "GEM-2 bot electrode", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "#Delta V Transfer-1 gap", "p" )   
+         if ( channelName[channelIdx] == "G2Top" ):
+            legendMultiImon.AddEntry( Imontg1, "GEM-2 top electrode", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "#Delta V GEM-2 foil", "p" )   
+         if ( channelName[channelIdx] == "G1Bot" ):
+            legendMultiImon.AddEntry( Imontg1, "GEM-1 bot electrode", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "#Delta V Transfer-1 gap", "p" )   
+         if ( channelName[channelIdx] == "G1Top" ):
+            legendMultiImon.AddEntry( Imontg1, "GEM-1 top electrode", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "#Delta V GEM-1 foil", "p" )   
+         if ( channelName[channelIdx] == "Drift" ):
+            legendMultiImon.AddEntry( Imontg1, "Drift electrode", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "#Delta V Drift gap", "p" )   
 
          #----------------------TREE STATUS------------------------------------------------
          #translate the status in binary and meaning string
@@ -1509,6 +1703,147 @@ def main():
          StatusTree.Write()
 
       #end of loop over channels
+
+      #calculate how much to adjust the range in Y for multigraphs
+      rangeImon = maxValImonMultig - minValImonMultig
+      rangeVmon = maxValVmonMultig - minValVmonMultig
+      rangeSmon = maxValSmonMultig - minValSmonMultig
+      rangeTemp = maxValTempMultig - minValTempMultig
+
+      minValImonMultig = minValImonMultig - 0.05*rangeImon
+      minValVmonMultig = minValVmonMultig - 0.05*rangeVmon
+      minValSmonMultig = minValSmonMultig - 0.05*rangeSmon
+      minValTempMultig = minValTempMultig - 0.05*rangeTemp
+
+      maxValImonMultig = maxValImonMultig + 0.05*rangeImon
+      maxValVmonMultig = maxValVmonMultig + 0.05*rangeVmon
+      maxValSmonMultig = maxValSmonMultig + 0.05*rangeSmon
+      maxValTempMultig = maxValTempMultig + 0.05*rangeTemp
+
+      print ("chamberEndLoop", chamberList[chIdx] )
+
+      fontSize = 0.018
+
+      #set multigraphs
+      Imontmultig1.GetXaxis().SetRangeUser( minDateImonMultig, maxDateImonMultig )
+      Imontmultig1.GetYaxis().SetRangeUser( minValImonMultig-0.5*rangeImon, maxValImonMultig )
+      Imontmultig1.GetYaxis().SetTitle("Monitored current (#muA)")
+      Imontmultig1.GetXaxis().SetTimeDisplay(1)
+      Imontmultig1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+      Imontmultig1.GetXaxis().SetLabelOffset(0.025)
+      Imontmultig1.GetXaxis().SetLabelSize(fontSize)
+      Imontmultig1.GetYaxis().SetLabelSize(fontSize)
+
+      Vmontmultig1.GetXaxis().SetRangeUser( minDateVmonMultig, maxDateVmonMultig )
+      Vmontmultig1.GetYaxis().SetRangeUser( minValVmonMultig, maxValVmonMultig+0.6*rangeVmon )
+      Vmontmultig1.GetYaxis().SetTitle("Monitored voltage (V)")
+      Vmontmultig1.GetXaxis().SetTimeDisplay(1)
+      Vmontmultig1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+      Vmontmultig1.GetXaxis().SetLabelOffset(0.025)
+      Vmontmultig1.GetXaxis().SetLabelSize(fontSize)
+      Vmontmultig1.GetYaxis().SetLabelSize(fontSize)
+
+      Smontmultig1.GetXaxis().SetRangeUser( minDateSmonMultig, maxDateSmonMultig )
+      Smontmultig1.GetYaxis().SetRangeUser( minValSmonMultig, maxValSmonMultig )
+      #Smontmultig1.GetYaxis().SetTitle("Date(YY-MM-DD) / UTC Time(hh:mm:ss)"); #used to produce the label with the same font easily
+      Smontmultig1.GetXaxis().SetTimeDisplay(1)
+      Smontmultig1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+      Smontmultig1.GetXaxis().SetLabelOffset(0.025)
+      Smontmultig1.GetXaxis().SetLabelSize(fontSize)
+      Smontmultig1.GetYaxis().SetLabelSize(fontSize)
+
+      Isontmultig1.GetXaxis().SetRangeUser( minDateIsonMultig, maxDateIsonMultig )
+      Isontmultig1.GetYaxis().SetRangeUser( 0.05, 1.5 )
+      Isontmultig1.GetXaxis().SetTimeDisplay(1)
+      Isontmultig1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+      Isontmultig1.GetXaxis().SetLabelOffset(0.025)
+      Isontmultig1.GetXaxis().SetLabelSize(fontSize)
+      Isontmultig1.GetYaxis().SetLabelSize(fontSize)
+
+      Temptmultig1.GetXaxis().SetRangeUser( minDateTempMultig, maxDateTempMultig )
+      Temptmultig1.GetXaxis().SetTimeDisplay(1)
+      Temptmultig1.GetXaxis().SetTimeFormat("#splitline{%y-%m-%d}{%H:%M:%S}%F1970-01-01 00:00:00")
+      Temptmultig1.GetXaxis().SetLabelOffset(0.025)
+      Temptmultig1.GetXaxis().SetLabelSize(fontSize)
+      Temptmultig1.GetYaxis().SetLabelSize(fontSize)
+
+      Imontmultig1.Write()
+      Vmontmultig1.Write()
+      Smontmultig1.Write()
+      Isontmultig1.Write()
+      Temptmultig1.Write()
+
+      #canvas dimensions                  
+      canW = 800;
+      canH = 800;
+      canH_ref = 800; 
+      canW_ref = 800; 
+     
+      #references for T, B, L, R
+      TopMar = 0.12*canH_ref;
+      BotMar = 0.17*canH_ref; 
+      LeftMar = 0.15*canW_ref;
+      RightMar = 0.12*canW_ref;
+
+      #declare a TPaveText for CMS Prelimiary
+      cmsPrel = ROOT.TPaveText(0.13,0.88,0.355,0.96,"brNDC");
+      cmsPrel.AddText("CMS Preliminary");
+      cmsPrel.SetTextAlign(12);
+      cmsPrel.SetShadowColor(transWhite);
+      cmsPrel.SetFillColor(transWhite);
+      cmsPrel.SetLineColor(transWhite);
+      cmsPrel.SetLineColor(transWhite);
+
+      #declare a TPaveText for CMS xAxis title
+      xAxisLab = ROOT.TPaveText(0.6,0.88,0.9,0.92,"brNDC");
+      xAxisLab.AddText("Date(YY-MM-DD) / Time(hh:mm:ss)");
+      xAxisLab.SetTextAlign(12);
+      xAxisLab.SetShadowColor(transWhite);
+      xAxisLab.SetFillColor(transWhite);
+      xAxisLab.SetLineColor(transWhite);
+      xAxisLab.SetLineColor(transWhite);
+
+      #declare three canvas for multigraphs: without canvas I cannot put the legend
+      imonCanvas = ROOT.TCanvas("ImonCanvasAllChannels", chamberList[chIdx], 50, 50, 800, 800 )
+      imonCanvas.SetLeftMargin( LeftMar/canW )
+      imonCanvas.SetRightMargin( RightMar/canW )
+      imonCanvas.SetTopMargin( TopMar/canH )
+      imonCanvas.SetBottomMargin( BotMar/canH )
+      Imontmultig1.Draw("AP")
+      legendMultiImon.Draw("SAME")
+      cmsPrel.Draw("NB")
+      xAxisLab.Draw("NB")
+      imonCanvas.Write()
+
+      vmonCanvas = ROOT.TCanvas("VmonCanvasAllChannels", chamberList[chIdx], 50, 50, 800, 800 )
+      vmonCanvas.SetLeftMargin( LeftMar/canW )
+      vmonCanvas.SetRightMargin( RightMar/canW )
+      vmonCanvas.SetTopMargin( TopMar/canH )
+      vmonCanvas.SetBottomMargin( BotMar/canH )
+      Vmontmultig1.Draw("AP")
+      legendMultiVmon.Draw("SAME")
+      cmsPrel.Draw("NB")
+      xAxisLab.Draw("NB")
+      vmonCanvas.Write()
+
+      smonCanvas = ROOT.TCanvas("SmonCanvasAllChannels", chamberList[chIdx], 50, 50, 800, 800 )
+      smonCanvas.SetLeftMargin( LeftMar/canW )
+      smonCanvas.SetRightMargin( RightMar/canW )
+      smonCanvas.SetTopMargin( TopMar/canH )
+      smonCanvas.SetBottomMargin( BotMar/canH )
+      Smontmultig1.Draw("AP")
+      legendMultiImon.Draw("SAME")
+      cmsPrel.Draw("NB")
+      xAxisLab.Draw("NB")
+      smonCanvas.Write()
+
+      del(Imontmultig1)
+      del(Vmontmultig1)
+      del(Smontmultig1)
+      del(imonCanvas)
+      del(vmonCanvas)
+      del(smonCanvas)
+
    #end of loop over chambers
    #at column 3 we are inside the main 
    f1.Close()
