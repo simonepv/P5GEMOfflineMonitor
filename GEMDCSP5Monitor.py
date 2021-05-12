@@ -12,7 +12,7 @@ import argparse
 from argparse import RawTextHelpFormatter
 from sys import exit
 
-r"""
+"""
 ``GEMDCSP5Monitor.py`` --- Retrieve data for GEM detectors in P5 from database
 ============================================================================
 Synopsis
@@ -30,7 +30,7 @@ This code runs on the 904DAQ machine
 First of all you have to enter in your lxplus area and then connect to the 904DAQ machine
 
 Now you have to ensure that in your area you have set two variables for access
-GEM_P5_DB_NAME and GEM_P5_DB_ACCOUNT which contain the credentials to access to CMS P5 database
+GEM_P5_DB_NAME_OFFLINE_MONITOR and GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR which contain the credentials to access to CMS P5 database
 
 Description
 -----------
@@ -72,7 +72,7 @@ descrString = "Twiki\n------------------------\nTO BE DONE"
 descrString = descrString + "\n\nEnvironment\n------------------------\nThis code runs on the 904DAQ machine\n"
 descrString = descrString + "\nFirst of all you have to enter in your lxplus area and then connect to the 904DAQ machine"
 descrString = descrString + "\nNow you have to ensure that in your area you have set two variables for access"
-descrString = descrString + "\nGEM_P5_DB_NAME and GEM_P5_DB_ACCOUNT which contain the credentials to access to CMS P5 database"
+descrString = descrString + "\nGEM_P5_DB_NAME_OFFLINE_MONITOR and GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR which contain the credentials to access to CMS P5 database"
 descrString = descrString + "\n\nDescription\n------------------------\nRetrieve from the database the vmon, imon, status, isON and temperature informations\n"
 descrString = descrString + "To run this code you first have to put in one file the alias of chambers you want"
 descrString = descrString + "\n   In case you want data for the present situation in P5"
@@ -105,11 +105,11 @@ args = parser.parse_args()
 
 #import DB credentials
 from gempython.utils.wrappers import envCheck
-envCheck("GEM_P5_DB_NAME")
-envCheck("GEM_P5_DB_ACCOUNT")
+envCheck("GEM_P5_DB_NAME_OFFLINE_MONITOR")
+envCheck("GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR")
 
-dbName = os.getenv("GEM_P5_DB_NAME")
-dbAccount = os.getenv("GEM_P5_DB_ACCOUNT")
+dbName = os.getenv("GEM_P5_DB_NAME_OFFLINE_MONITOR")
+dbAccount = os.getenv("GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR")
 
 def main():
    #Reminder: in the DB the DeltaV between pins are saved, not the V from ground
@@ -1220,12 +1220,91 @@ def main():
          Isontg1.GetXaxis().SetLabelOffset(0.025)
          Temptg1.GetXaxis().SetLabelOffset(0.025)
 
+         Imontg1.GetXaxis().SetLabelSize(0.018)
+         Vmontg1.GetXaxis().SetLabelSize(0.018)
+         Smontg1.GetXaxis().SetLabelSize(0.018)
+         Isontg1.GetXaxis().SetLabelSize(0.018)
+         Temptg1.GetXaxis().SetLabelSize(0.018)
+
+         Imontg1.GetYaxis().SetLabelSize(0.018)
+         Vmontg1.GetYaxis().SetLabelSize(0.018)
+         Smontg1.GetYaxis().SetLabelSize(0.018)
+         Isontg1.GetYaxis().SetLabelSize(0.018)
+         Temptg1.GetYaxis().SetLabelSize(0.018)
+
+
          #Write TGraph
          Imontg1.Write()
          Vmontg1.Write()
          Smontg1.Write()
          Isontg1.Write()
          Temptg1.Write()
+
+         #canvas dimensions                  
+         canW = 800;
+         canH = 800;
+         canH_ref = 800; 
+         canW_ref = 800; 
+                                                                 
+         #references for T, B, L, R
+         TopMar = 0.12*canH_ref;
+         BotMar = 0.17*canH_ref; 
+         LeftMar = 0.15*canW_ref;
+         RightMar = 0.12*canW_ref;
+                                                                 
+         #declare a TPaveText for CMS Prelimiary
+         cmsPrelOneGr = ROOT.TPaveText(0.13,0.88,0.355,0.96,"brNDC");
+         cmsPrelOneGr.AddText("CMS Preliminary");
+         cmsPrelOneGr.SetTextAlign(12);
+         cmsPrelOneGr.SetShadowColor(transWhite);
+         cmsPrelOneGr.SetFillColor(transWhite);
+         cmsPrelOneGr.SetLineColor(transWhite);
+         cmsPrelOneGr.SetLineColor(transWhite);
+                                                                 
+         #declare a TPaveText for CMS xAxis title
+         xAxisLabOneGr = ROOT.TPaveText(0.6,0.88,0.9,0.92,"brNDC");
+         xAxisLabOneGr.AddText("Date(YY-MM-DD) / UTC Time(hh:mm:ss)");
+         xAxisLabOneGr.SetTextAlign(12);
+         xAxisLabOneGr.SetShadowColor(transWhite);
+         xAxisLabOneGr.SetFillColor(transWhite);
+         xAxisLabOneGr.SetLineColor(transWhite);
+         xAxisLabOneGr.SetLineColor(transWhite);
+
+         #save TGraphSingleChannel 
+
+         #chStringSaveArr = ["Drift", "G1Bot", "G2Bot", "G3Bot"]
+         #dirStringSave  = "P5_2020-01-21_07-00-00"
+
+         #for saveIdx in range(len(chStringSaveArr)):
+         #   if ( channelName[channelIdx] == chStringSaveArr[saveIdx] ):
+         #      #declare two canvas                   
+         #      chStringSave = chStringSaveArr[saveIdx]
+         #      imonCanvasOneGr = ROOT.TCanvas("ImonCanvasOneGraph", chamberList[chIdx]+chStringSave, 50, 50, 800, 800 )
+         #      imonCanvasOneGr.SetLeftMargin( LeftMar/canW )
+         #      imonCanvasOneGr.SetRightMargin( RightMar/canW )
+         #      imonCanvasOneGr.SetTopMargin( TopMar/canH )
+         #      imonCanvasOneGr.SetBottomMargin( BotMar/canH )
+         #      Imontg1.Draw("AP")
+         #      cmsPrelOneGr.Draw("NB")
+         #      xAxisLabOneGr.Draw("NB")
+         #      chamberNameNoSlash = chamberList[chIdx].replace("/","_")
+         #      imonCanvasOneGr.SaveAs(dirStringSave+"/Imon_"+chamberNameNoSlash+"_"+chStringSave+".png")
+    
+         #      vmonCanvasOneGr = ROOT.TCanvas("VmonCanvasOneGraph", chamberList[chIdx]+chStringSave, 50, 50, 800, 800 )
+         #      vmonCanvasOneGr.SetLeftMargin( LeftMar/canW )
+         #      vmonCanvasOneGr.SetRightMargin( RightMar/canW )
+         #      vmonCanvasOneGr.SetTopMargin( TopMar/canH )
+         #      vmonCanvasOneGr.SetBottomMargin( BotMar/canH )
+         #      Vmontg1.Draw("AP")
+         #      cmsPrelOneGr.Draw("NB")
+         #      xAxisLabOneGr.Draw("NB")
+         #      vmonCanvasOneGr.SaveAs(dirStringSave+"/Vmon_"+chamberNameNoSlash+"_"+chStringSave+".png")
+
+         #      del( imonCanvasOneGr )
+         #      del( vmonCanvasOneGr )
+           
+
+
 
          #add graphs to multigraphs
          Imontmultig1.Add(Imontg1)
@@ -1242,7 +1321,7 @@ def main():
             legendMultiVmon.AddEntry( Imontg1, "#Delta V GEM-3 foil", "p" )   
          if ( channelName[channelIdx] == "G2Bot" ):
             legendMultiImon.AddEntry( Imontg1, "GEM-2 bot electrode", "p" )   
-            legendMultiVmon.AddEntry( Imontg1, "#Delta V Transfer-1 gap", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "#Delta V Transfer-2 gap", "p" )   
          if ( channelName[channelIdx] == "G2Top" ):
             legendMultiImon.AddEntry( Imontg1, "GEM-2 top electrode", "p" )   
             legendMultiVmon.AddEntry( Imontg1, "#Delta V GEM-2 foil", "p" )   
@@ -1837,12 +1916,22 @@ def main():
       xAxisLab.Draw("NB")
       smonCanvas.Write()
 
+      #SAVE MULTIGRAPHS
+      dirStringSaveMulti = "P5_2020-01-22_07-00-00"
+
+      chamberNameNoSlash = chamberList[chIdx].replace("/","_")
+
+      imonCanvas.SaveAs(dirStringSaveMulti+"/Imon_"+chamberNameNoSlash+"_AllElectrodes.png")
+      vmonCanvas.SaveAs(dirStringSaveMulti+"/Vmon_"+chamberNameNoSlash+"_AllElectrodes.png")
+
+
       del(Imontmultig1)
       del(Vmontmultig1)
       del(Smontmultig1)
       del(imonCanvas)
       del(vmonCanvas)
       del(smonCanvas)
+
 
    #end of loop over chambers
    #at column 3 we are inside the main 
@@ -1854,8 +1943,6 @@ def main():
    print('To draw a TH1 or a TGraph: OBJNAME->Draw()')
    print('To scan the TTree use for example:\nHV_StatusTree2_2_Top_G3Bot->Scan("","","colsize=26")')
    print("ALL MONITOR TIMES ARE IN UTC, DCS TIMES ARE IN CET")
-
-
 
 if __name__ == '__main__':
    main()
