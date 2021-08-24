@@ -637,7 +637,8 @@ def main():
    stringWhatRetriveList     = ["imon", "vmon", "smon", "ison", "temp"]
    for chIdx in range(len(chamberList)):
       #create the first level of directories: one for each chamber
-      chamberNameRootFile = chamberList[chIdx].replace("-", "_")
+      chamberNameRootFile = chamberList[chIdx].replace("-", "_M")
+      chamberNameRootFile = chamberNameRootFile.replace("+", "_P")
       chamberNameRootFile = chamberNameRootFile.replace("/", "_")
       firstDir = f1.mkdir(chamberNameRootFile)
       firstDir.cd()
@@ -658,6 +659,8 @@ def main():
       #declare one multigraph with all channel
       Imontmultig1 = ROOT.TMultiGraph()
       titleMultig1 = chamberList[chIdx] + "; ;Imon (#mu A)"
+      if monitorFlag == "LV":
+         titleMultig1 = chamberList[chIdx] + "; ;Imon (A)"
       Imontmultig1.SetName( chamberList[chIdx]+"_Imon_AllChannels" )
       Imontmultig1.SetTitle( titleMultig1 )
       minDateImonMultig = 9999999
@@ -809,11 +812,11 @@ def main():
                if imonElem is not None:       #imon
                   tripleList = [ tot_secondsDate, dateElemSQL, imonElem ]
                   imonData.append( tripleList )
-               else:
+               """else:
                   if monitorFlag == "HV":
                      if imonRealElem is not None:
                         tripleList = [ tot_secondsDate, dateElemSQL, imonRealElem ]
-                        imonData.append( tripleList )
+                        imonData.append( tripleList )"""
                if vmonElem is not None:       #vmon
                   tripleList = [ tot_secondsDate, dateElemSQL, vmonElem, mapIdx, dateElemStr ]
                   vmonData.append( tripleList )
@@ -847,6 +850,12 @@ def main():
             smonData = sorted(smonData, key=lambda element: element[0])
             isonData = sorted(isonData, key=lambda element: element[0])
             tempData = sorted(tempData, key=lambda element: element[0])
+
+            #print("imonData", imonData)
+            #print("vmonData", vmonData)
+            #print("smonData", smonData)
+            #print("isonData", isonData)
+            #print("tempData", tempData)
 
             print("   Lists sorted: WAIT PLEASE!!")
 
@@ -948,7 +957,8 @@ def main():
             NBinTemp = TempMax
     
          #declare histograms
-         chamberNameRootFile = chamberList[chIdx].replace("-", "_")
+         chamberNameRootFile = chamberList[chIdx].replace("-", "_M")
+         chamberNameRootFile = chamberNameRootFile.replace("+", "_P")
          chamberNameRootFile = chamberNameRootFile.replace("/", "_")
 
          Imonh1 = ROOT.TH1F(monitorFlag+"_ImonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", monitorFlag+"_ImonChamber"+  chamberNameRootFile+"_"+channelName[channelIdx]+"_TH1", NBinImon, IMin, IMax)	
@@ -1026,6 +1036,11 @@ def main():
             tempData_dates.append(tempData[tempIdx][0])
             tempData_values.append(tempData[tempIdx][1])
 
+
+
+
+
+
          #in case there is nothing the TGraph gives error: put a dummy value
          dummyNumber = -999999999
          if monitorFlag == "HV":
@@ -1035,14 +1050,59 @@ def main():
          dummyDate = str("1970-01-01 00:00:01.000001")
          dummyPair = [0, dummyNumber]
          dummyThree = [0, dummyStatus, dummyDate]
+         #Last Value
+         if ( len(vmonData)==0 and sliceTestFlag == 0 and monitorFlag == "HV"  ):
+            #queryLastValue = "select VALUE_NUMBER from CMS_GEM_PVSS_COND.FWCAENCHANNELA1515_LV where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and DPE_NAME = 'ACTUAL_VMON'"
+            #Do a query back in time
+            foundLast = False
+            firstDateBackInTime = firstDateToCall
+            lastDateBackInTime  = lastDateToCall
+            refDate = firstDateToCall
+            timeIntervalStep = lastDateToCall - firstDateToCall
+            for queryIdx in range(5):
+                #firstDateBackInTime = firstDateBackInTime - timeIntervalStep
+                #lastDateBackInTime  = lastDateBackInTime  - timeIntervalStep
+                firstDateBackInTime = refDate - timedelta(hours=12*(queryIdx+1))
+                lastDateBackInTime  = refDate - timedelta(hours=12*(queryIdx))
+                queryLastValue = "select CHANGE_DATE, ACTUAL_VMON from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( '" + str(firstDateBackInTime) + "', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( '" + str(lastDateBackInTime) + "', 'YYYY-MM-DD HH24:MI:SS')"
+                print ( queryLastValue )
+                cur.execute(queryLastValue)
+                curLast = cur
+                lastValueList = []
+                for curLastElem in curLast:
+                   lastValue_date  = curLastElem[0]
+                   lastValue_value = curLastElem[1]
+                   if lastValue_value is not None:
+                      lastValueList.append( [lastValue_date, lastValue_value] )
+                #Sort the list
+                lastValueList = sorted(lastValueList, key=lambda element: element[0])
+                if len(lastValueList) > 0:
+                   lastSavedVoltage_value = lastValueList[-1][1]
+                   foundLast = True
+                   break
+            #print ( "LAST", lastSavedVoltage_value )
+            startLast = start.replace("_", "-")
+            startLastSplitList = startLast.split("-")
+            lastDateStr = startLastSplitList[0]+"-"+startLastSplitList[1]+"-"+startLastSplitList[2]+" "+startLastSplitList[3]+":" +startLastSplitList[4]+":"+startLastSplitList[5]
+            print ( "lastDateStr", lastDateStr)
+            last_date = ROOT.TDatime( lastDateStr )
+            lastDateConverted = last_date.Convert()            
+            floatMicro_LAST = "0.000001"
+            dateElemSQL_LAST = lastDateConverted + float(floatMicro_LAST)
+
          if len(imonData)==0: 
             imonData_dates.append(0)
             imonData_values.append(dummyNumber)
             imonData.append( dummyPair ) 
          if len(vmonData)==0:
-            vmonData_dates.append(0)
-            vmonData_values.append(dummyNumber) 
-            vmonData.append( dummyPair ) 
+            if foundLast:
+               vmonData_dates.append(dateElemSQL_LAST)
+               vmonData_values.append(lastSavedVoltage_value) 
+               vmonData.append( [dateElemSQL_LAST, lastSavedVoltage_value] ) 
+            else:
+               vmonData_dates.append(0)
+               vmonData_values.append(dummyNumber) 
+               vmonData.append( dummyPair ) 
          if len(smonData)==0:
             smonData_dates.append(0)
             smonData_values.append(dummyStatus) 
@@ -1335,6 +1395,14 @@ def main():
             legendMultiImon.AddEntry( Imontg1, "Drift electrode", "p" )   
             legendMultiVmon.AddEntry( Imontg1, "#Delta V Drift gap", "p" )   
 
+
+         if ( channelName[channelIdx] == "L1" ):
+            legendMultiImon.AddEntry( Imontg1, "Layer 1", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "Layer 1", "p" )   
+         if ( channelName[channelIdx] == "L2" ):
+            legendMultiImon.AddEntry( Imontg1, "Layer 2", "p" )   
+            legendMultiVmon.AddEntry( Imontg1, "Layer 2", "p" )   
+
          #----------------------TREE STATUS------------------------------------------------
          #translate the status in binary and meaning string
          smonData_binStatus     = []
@@ -1398,7 +1466,7 @@ def main():
                #print("binStat:", binStat, "shift2:", shift2 )
                if len(shift2) != 13:
                   print("ERROR: "+monitorFlag+" error in len of shift2. Len="+str(len(shift2))+"/13")
-                  print("shift2:", shift2)
+                  print("binStat:", binStat, "shift2:", shift2)
                   return 1
        
                #for the second status cathegory I need the last two bins of shift2
