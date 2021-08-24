@@ -829,6 +829,8 @@ def main():
                   vmonData.append( tripleList )
                if smonElem is not None:       #smon          
                   tripleList = [ tot_secondsDate, dateElemSQL, smonElem, dateElemString ]
+                  if smonElem < 0:
+                     continue
                   smonData.append( tripleList )
                if isonElem is not None:       #ison
                   tripleList = [ tot_secondsDate, dateElemSQL, isonElem ]
