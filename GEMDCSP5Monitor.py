@@ -103,10 +103,13 @@ parser.add_argument("sliceTestFlag", type=int,
  
 args = parser.parse_args()
 
-#import DB credentials
-from gempython.utils.wrappers import envCheck
-envCheck("GEM_P5_DB_NAME_OFFLINE_MONITOR")
-envCheck("GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR")
+#import DB credentials as env variables
+for env in ["GEM_P5_DB_NAME_OFFLINE_MONITOR", "GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR"]:
+   try:  
+      os.environ[env]
+   except KeyError: 
+      print "Please set the environment variable ", env
+      sys.exit(1)
 
 dbName = os.getenv("GEM_P5_DB_NAME_OFFLINE_MONITOR")
 dbAccount = os.getenv("GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR")
@@ -184,6 +187,9 @@ def main():
  
    #-------------OUTPUT ROOT FILE------------------------------------------------
    fileName = "P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+".root" 
+   dirStringSave = "P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+"/"
+   if not os.path.exists(dirStringSave):
+       os.makedirs(dirStringSave)
    f1=ROOT.TFile( fileName,"RECREATE")
 
    #-------------DATES OF MAPPING CHANGE-----------------------------------------
@@ -1335,7 +1341,6 @@ def main():
          #save TGraphSingleChannel 
 
          #chStringSaveArr = ["Drift", "G1Bot", "G2Bot", "G3Bot"]
-         #dirStringSave  = "P5_2020-01-21_07-00-00"
 
          #for saveIdx in range(len(chStringSaveArr)):
          #   if ( channelName[channelIdx] == chStringSaveArr[saveIdx] ):
@@ -1987,12 +1992,10 @@ def main():
       smonCanvas.Write()
 
       #SAVE MULTIGRAPHS
-      dirStringSaveMulti = "P5_2020-01-22_07-00-00"
-
       chamberNameNoSlash = chamberList[chIdx].replace("/","_")
 
-      imonCanvas.SaveAs(dirStringSaveMulti+"/Imon_"+chamberNameNoSlash+"_AllElectrodes.png")
-      vmonCanvas.SaveAs(dirStringSaveMulti+"/Vmon_"+chamberNameNoSlash+"_AllElectrodes.png")
+      imonCanvas.SaveAs(dirStringSave+"Imon_"+chamberNameNoSlash+"_AllElectrodes.png")
+      vmonCanvas.SaveAs(dirStringSave+"Vmon_"+chamberNameNoSlash+"_AllElectrodes.png")
 
 
       del(Imontmultig1)
