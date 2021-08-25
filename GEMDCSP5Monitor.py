@@ -100,6 +100,9 @@ parser.add_argument("monitorFlag", type=str,
 parser.add_argument("sliceTestFlag", type=int,
        help="sliceTestFlag tells if data must be taken from slice test period or not \n(sliceTestFlag = 0 : I use data for current situation in P5, sliceTestFlag = 1 : I use data collected during the slice test)",
        metavar="sliceTestFlag")
+parser.add_argument("chamberList", type=str,
+       help="custom list of Chosen Chambers. If not set, default files will be used. If set to 'all', all existing chambers will be used.)",
+       metavar="chamberList")
  
 args = parser.parse_args()
 
@@ -127,13 +130,23 @@ def main():
    sliceTestFlag = args.sliceTestFlag
    
    #-------------FILE WITH CHOSEN CHAMBERS------------------------------------
-   if monitorFlag == "HV":
+   if (args.chamberList is not None) and (args.chamberList != "all"):
+       chambersFileName == args.chamberList
+   elif args.chamberList == "all":
+       if sliceTestFlag == 0:
+          chambersFileName = "P5GEMExistingChambers.txt"
+       if sliceTestFlag == 1:
+          if monitorFlag == "HV":
+             chambersFileName = "P5GEMExistingChambers_sliceTest_HV.txt"
+          if monitorFlag == "LV":
+             chambersFileName = "P5GEMExistingChambers_sliceTest_LV.txt"
+   elif monitorFlag == "HV":
       if sliceTestFlag == 0:
          chambersFileName = "P5GEMChosenChambers_HV.txt"
       if sliceTestFlag == 1:
          chambersFileName = "P5GEMChosenChambers_sliceTest_HV.txt"
 
-   if monitorFlag == "LV":
+   elif monitorFlag == "LV":
       if sliceTestFlag == 0:
          chambersFileName = "P5GEMChosenChambers_LV.txt"
       if sliceTestFlag == 1:
@@ -186,11 +199,13 @@ def main():
    endDate   = datetime(int(end[:4]), int(end[5:7]), int(end[8:10]), int(end[11:13]), int(end[14:16]), int(end[17:]) )
  
    #-------------OUTPUT ROOT FILE------------------------------------------------
-   dirStringSave = "P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+"/"
+   if not os.path.exists("OutputFiles"):
+       os.makedirs("OutputFiles")
+   dirStringSave = "OutputFiles/P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+"/"
    if not os.path.exists(dirStringSave):
        os.makedirs(dirStringSave)
 
-   fileName = "P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+".root" 
+   fileName = "OutputFiles/P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+".root" 
    f1=ROOT.TFile(fileName,"RECREATE")
 
    #-------------DATES OF MAPPING CHANGE-----------------------------------------
