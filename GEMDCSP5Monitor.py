@@ -104,6 +104,7 @@ parser.add_argument("--chamberList", "-c", type=str,
        help="custom list of Chosen Chambers. If not set, default files will be used. If set to 'all', all existing chambers will be used.)",
        metavar="chamberList")
 parser.add_argument("--verbose", "--v", help="Enables print outputs.")
+parser.add_argument("--save", "--s", help="Save .png plots.")
  
 args = parser.parse_args()
     
@@ -1388,7 +1389,7 @@ def main():
          #      cmsPrelOneGr.Draw("NB")
          #      xAxisLabOneGr.Draw("NB")
          #      chamberNameNoSlash = chamberList[chIdx].replace("/","_")
-         #      imonCanvasOneGr.SaveAs(dirStringSave+"/Imon_"+chamberNameNoSlash+"_"+chStringSave+".png")
+         #      if args.save: imonCanvasOneGr.SaveAs(dirStringSave+"/Imon_"+chamberNameNoSlash+"_"+chStringSave+".png")
     
          #      vmonCanvasOneGr = ROOT.TCanvas("VmonCanvasOneGraph", chamberList[chIdx]+chStringSave, 50, 50, 800, 800 )
          #      vmonCanvasOneGr.SetLeftMargin( LeftMar/canW )
@@ -1398,7 +1399,7 @@ def main():
          #      Vmontg1.Draw("AP")
          #      cmsPrelOneGr.Draw("NB")
          #      xAxisLabOneGr.Draw("NB")
-         #      vmonCanvasOneGr.SaveAs(dirStringSave+"/Vmon_"+chamberNameNoSlash+"_"+chStringSave+".png")
+         #      if args.save: vmonCanvasOneGr.SaveAs(dirStringSave+"/Vmon_"+chamberNameNoSlash+"_"+chStringSave+".png")
 
          #      del( imonCanvasOneGr )
          #      del( vmonCanvasOneGr )
@@ -2027,8 +2028,8 @@ def main():
       #SAVE MULTIGRAPHS
       chamberNameNoSlash = chamberList[chIdx].replace("/","_")
 
-      imonCanvas.SaveAs(dirStringSave+"/Imon_"+chamberNameNoSlash+"_AllElectrodes.png")
-      vmonCanvas.SaveAs(dirStringSave+"/Vmon_"+chamberNameNoSlash+"_AllElectrodes.png")
+      if args.save: imonCanvas.SaveAs(dirStringSave+"/Imon_"+chamberNameNoSlash+"_AllElectrodes.png")
+      if args.save: vmonCanvas.SaveAs(dirStringSave+"/Vmon_"+chamberNameNoSlash+"_AllElectrodes.png")
 
 
       del(Imontmultig1)
