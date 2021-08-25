@@ -100,11 +100,25 @@ parser.add_argument("monitorFlag", type=str,
 parser.add_argument("sliceTestFlag", type=int,
        help="sliceTestFlag tells if data must be taken from slice test period or not \n(sliceTestFlag = 0 : I use data for current situation in P5, sliceTestFlag = 1 : I use data collected during the slice test)",
        metavar="sliceTestFlag")
-parser.add_argument("chamberList", type=str,
+parser.add_argument("--chamberList", "-c", type=str,
        help="custom list of Chosen Chambers. If not set, default files will be used. If set to 'all', all existing chambers will be used.)",
        metavar="chamberList")
+parser.add_argument("--verbose", "--v", help="Enables print outputs.")
  
 args = parser.parse_args()
+    
+ROOT.gROOT.SetBatch(True)
+
+#set verbosity settings
+if args.verbose:
+    def verboseprint(*args):
+        # Print each argument separately so caller doesn't need to
+        # stuff everything to be printed into a single string
+        for arg in args:
+           print arg,
+        print
+else:   
+    verboseprint = lambda *a: None      # do-nothing function
 
 #import DB credentials as env variables
 for env in ["GEM_P5_DB_NAME_OFFLINE_MONITOR", "GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR"]:
@@ -112,7 +126,7 @@ for env in ["GEM_P5_DB_NAME_OFFLINE_MONITOR", "GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR
        os.environ[env]
     except KeyError: 
        print "Please set the environment variable ", env
-       sys.exit(1)
+       exit(1)
 
 dbName = os.getenv("GEM_P5_DB_NAME_OFFLINE_MONITOR")
 dbAccount = os.getenv("GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR")
@@ -130,6 +144,7 @@ def main():
    sliceTestFlag = args.sliceTestFlag
    
    #-------------FILE WITH CHOSEN CHAMBERS------------------------------------
+   dir_path = os.path.dirname(os.path.realpath(__file__))
    if (args.chamberList is not None) and (args.chamberList != "all"):
        chambersFileName == args.chamberList
    elif args.chamberList == "all":
@@ -151,7 +166,7 @@ def main():
          chambersFileName = "P5GEMChosenChambers_LV.txt"
       if sliceTestFlag == 1:
          chambersFileName = "P5GEMChosenChambers_sliceTest_LV.txt"
-
+   chambersFileName=dir_path+"/"+chambersFileName
    #-------------FILE WITH EXISTING CHAMBERS-----------------------------------
    if sliceTestFlag == 0:
       existingChambersFileName = "P5GEMExistingChambers.txt"
@@ -160,6 +175,7 @@ def main():
          existingChambersFileName = "P5GEMExistingChambers_sliceTest_HV.txt"
       if monitorFlag == "LV":
          existingChambersFileName = "P5GEMExistingChambers_sliceTest_LV.txt"
+   existingChambersFileName=dir_path+"/"+existingChambersFileName
 
    #-------------FILE WITH MAPPING---------------------------------------------
    if monitorFlag == "HV":
@@ -173,6 +189,7 @@ def main():
          mappingFileName = "GEMP5MappingLV.txt"
       if sliceTestFlag == 1:
          mappingFileName = "GEMP5MappingLV_sliceTest.txt"
+   mappingFileName=dir_path+"/"+mappingFileName
 
    #-------------PREPARE START AND END DATE------------------------------------
    #sta_period = raw_input("Insert UTC start time in format YYYY-MM-DD HH:mm:ss\n")
@@ -199,13 +216,13 @@ def main():
    endDate   = datetime(int(end[:4]), int(end[5:7]), int(end[8:10]), int(end[11:13]), int(end[14:16]), int(end[17:]) )
  
    #-------------OUTPUT ROOT FILE------------------------------------------------
-   if not os.path.exists("OutputFiles"):
-       os.makedirs("OutputFiles")
-   dirStringSave = "OutputFiles/P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+"/"
+   if not os.path.exists(dir_path+"/OutputFiles"):
+       os.makedirs(dir_path+"/OutputFiles")
+   dirStringSave = dir_path+"/OutputFiles/P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+"/"
    if not os.path.exists(dirStringSave):
        os.makedirs(dirStringSave)
 
-   fileName = "OutputFiles/P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+".root" 
+   fileName = dir_path+"/OutputFiles/P5_GEM_"+monitorFlag+"_monitor_UTC_start_"+start+"_end_"+end+".root" 
    f1=ROOT.TFile(fileName,"RECREATE")
 
    #-------------DATES OF MAPPING CHANGE-----------------------------------------
@@ -274,19 +291,19 @@ def main():
       for fillPeriodIdx in range(endIdx-startIdx-1):
          periodBool[startIdx+1+fillPeriodIdx] = 1
 
-   print ( periodBool ) 
+   verboseprint ( periodBool ) 
 
    #----------MAPPING LENGTH---------------------------------------------------
    #if mapping is HV is 504 lies long, if LV is 144 lines long
    findMap = 0
    if (mappingFileName.find("HV") != -1):
-      print("You are using a HV map")
+      verboseprint("You are using a HV map")
       findMap=1
       mappingLength = 504
       if sliceTestFlag == 1:
          mappingLength = 14 
    if (mappingFileName.find("LV") != -1):
-      print("You are using a LV map")
+      verboseprint("You are using a LV map")
       findMap=-1
       mappingLength = 144 
       if sliceTestFlag == 1:
@@ -298,7 +315,7 @@ def main():
    # is indicated with SC27:GEMINI27
    ExistingChambers = []
    nExistingChambers = sum(1 for line in open(existingChambersFileName))
-   print ("In "+ existingChambersFileName + " you have "+str(nExistingChambers)+" chambers")
+   verboseprint ("In "+ existingChambersFileName + " you have "+str(nExistingChambers)+" chambers")
    
    fileExChambers = open(existingChambersFileName, "r")
    fileExChambersLine = fileExChambers.readlines()
@@ -308,13 +325,13 @@ def main():
       ShortAliasOneChamber = exChamberName.split(":")
       ExistingChambers.append( ShortAliasOneChamber )      
 
-   print( "ExistingChambers:", ExistingChambers ) 
+   verboseprint( "ExistingChambers:", ExistingChambers ) 
    
    #------------READ THE FILE WITH CHOSEN CHAMBERS-------------------------------
    #name of chambers are take in input from the chambersFileName
    #count the number of chambers in the chambersFileName
    howManyChambers = sum(1 for line in open(chambersFileName)) 
-   print ("In "+ chambersFileName + " you have "+str(howManyChambers)+" chambers")
+   verboseprint ("In "+ chambersFileName + " you have "+str(howManyChambers)+" chambers")
 
    fileChambers = open(chambersFileName, "r")
    fileChambersLine = fileChambers.readlines()
@@ -338,7 +355,7 @@ def main():
          return 1
       chamberList.append( chamberName )
 
-   print ( chamberList )
+   verboseprint ( chamberList )
 
    #------------READ THE MAPPING FILE--------------------------------------------
    fileMapping = open(mappingFileName, "r")
@@ -397,7 +414,7 @@ def main():
          oneMap.append( stringFrontDP + fileMappingLine[lineIdx][:-1] )
       allMappingList.append(oneMap)
 
-   #print ( "allMappingList", allMappingList )
+   #verboseprint ( "allMappingList", allMappingList )
 
    #------------DATABASE CONNECT------------------------------------------------
    db = cx_Oracle.connect( dbAccount+dbName )
@@ -449,7 +466,7 @@ def main():
                         OneChannelOneDP = oneMapLine[:column2Idx]
                         OneChannelMapAlias = oneMapLine[column2Idx+1:]
                         OneChannelOneShortAlias = alterName
-                        print( "PairDPAlias", OneChannelOneDP, OneChannelOneShortAlias )
+                        verboseprint( "PairDPAlias", OneChannelOneDP, OneChannelOneShortAlias )
                         
                         #I have to look in the DB which is the SINCE associated to this ALIAS and DPE_NAME in table CMS_GEM_PVSS_COND.ALIASES
                         #REMEMBER: there is a dot at the end of DPE_NAME in ALIASES table 
@@ -474,9 +491,9 @@ def main():
                         DPAliasSinceOneChannel.append(OneChannelOneSince)
                         
                         OneMapAllDPs.append(DPAliasSinceOneChannel)   
-                        #print("OneMapAllDPs", OneMapAllDPs) 
+                        #verboseprint("OneMapAllDPs", OneMapAllDPs) 
          OneChamberAllDPs.append(OneMapAllDPs)
-         #print("OneChamberAllDPs", OneChamberAllDPs)
+         #verboseprint("OneChamberAllDPs", OneChamberAllDPs)
       #now OneChamberAllDPs is ready. I have to reorder the elements since I need a product given by a channel loop and then a map loop
       #instead I have a map loop and then a channel loop
       #I'd need this
@@ -489,12 +506,12 @@ def main():
       #INSTEAD I HAVE 
       #[[[1],[3]][[2],[4]]]
 
-      #print("OneChamberAllDPs", OneChamberAllDPs)
+      #verboseprint("OneChamberAllDPs", OneChamberAllDPs)
       
       #REORDER
-      #print ("OneChamberAllDPs[0]", OneChamberAllDPs[0]) 
-      #print ("OneChamberAllDPs[0]", type(OneChamberAllDPs[0])) 
-      #print ("OneChamberAllDPs[0]", len(OneChamberAllDPs[0])) 
+      #verboseprint ("OneChamberAllDPs[0]", OneChamberAllDPs[0]) 
+      #verboseprint ("OneChamberAllDPs[0]", type(OneChamberAllDPs[0])) 
+      #verboseprint ("OneChamberAllDPs[0]", len(OneChamberAllDPs[0])) 
       howManyChannelsInAMap = len(OneChamberAllDPs[0]) #number of channels seen in a map for this chamber
       OneChamberAllDPsWanted = []
       for channelIdx in range(howManyChannelsInAMap):
@@ -504,14 +521,14 @@ def main():
             fixedChannelList.append(takenTriplet)
          OneChamberAllDPsWanted.append(fixedChannelList)
 
-      #print("OneChamberAllDPsWanted", OneChamberAllDPsWanted)
+      #verboseprint("OneChamberAllDPsWanted", OneChamberAllDPsWanted)
       
       #sort in case SINCE are stored not in the cronological order
       for channelIdx in range(len(OneChamberAllDPsWanted)):
          OneChannelAllMapsList = OneChamberAllDPsWanted[channelIdx]
          OneChannelAllMapsListSorted = sorted(OneChannelAllMapsList, key=lambda element: element[2]) #element[2] is SINCE
          OneChamberAllDPsWanted[channelIdx] = OneChannelAllMapsListSorted
-      #print("OneChamberAllDPsWanted", OneChamberAllDPsWanted)
+      #verboseprint("OneChamberAllDPsWanted", OneChamberAllDPsWanted)
 
    #------------SEE WHICH SINCE ARE TO USE-----------------------------------------------------------------------------
    #table CMS_GEM_PVSS_COND.ALIASES contains SINCE, DPE_NAME, ALIAS
@@ -531,7 +548,7 @@ def main():
          for mapIdx in range(len(OneChamberAllDPsWanted[channelIdx])):
             usedMap = False
             sinceMap = OneChamberAllDPsWanted[channelIdx][mapIdx][2]
-            print ( "sinceMap", sinceMap )
+            verboseprint ( "sinceMap", sinceMap )
             pairDateFalse = []
             pairDateFalse.append(sinceMap)
             pairDateFalse.append(False)
@@ -547,9 +564,9 @@ def main():
          startIdx = sortDates.index( startPair )
          endIdx   = sortDates.index( endPair   )
          if startIdx == 0:
-            print( "start is before the first since")
+            verboseprint( "start is before the first since")
          if (startIdx == 0 and endIdx == 1):
-            print("both start and end are before the first since: no data expected")
+            verboseprint("both start and end are before the first since: no data expected")
             
          #mark since to use
          #first since if start is before start      
@@ -559,8 +576,8 @@ def main():
             if (sortIdx > startIdx and sortIdx < endIdx):
                sortDates[sortIdx][1] = True
 
-         print("sortDates", sortDates)
-         print("OneChamberAllDPsWanted", OneChamberAllDPsWanted[channelIdx][mapIdx])
+         verboseprint("sortDates", sortDates)
+         verboseprint("OneChamberAllDPsWanted", OneChamberAllDPsWanted[channelIdx][mapIdx])
 
          #add the true or false to the OneChamberAllDPsWanted list
          for mapIdx in range(len(OneChamberAllDPsWanted[channelIdx])):
@@ -569,17 +586,17 @@ def main():
             for sortIdx in range(len(sortDates)):
                #if the dates in two lists are the same I add the boolean
                if sortDates[sortIdx][0] == OneChamberAllDPsWanted[channelIdx][mapIdx][2]:
-                  print ( "sortDateMERDA", sortDates[sortIdx][1] )
+                  verboseprint ( "sortDate: ", sortDates[sortIdx][1] )
                   threeElements.append(sortDates[sortIdx][1]) #the boolean is in position 1
                   OneChamberAllDPsWanted[channelIdx][mapIdx] = threeElements         
          
-      print("OneChamberAllDPsWanted with true or false", OneChamberAllDPsWanted)
+      verboseprint("OneChamberAllDPsWanted with true or false", OneChamberAllDPsWanted)
 
       #--------------------------FIND IDs------------------------------------------------------------------------
       #DPE_NAME has a dot at the end of channellXXX, DPNAME has not a dot
 
-      print("-------------------------------------------------------------------------------------------------------------------------") 
-      print("                    "+chamberList[chIdx]+" :CALLED DPs AND THEIR IDs")
+      verboseprint("-------------------------------------------------------------------------------------------------------------------------") 
+      verboseprint("                    "+chamberList[chIdx]+" :CALLED DPs AND THEIR IDs")
       for channelIdx in range(len(OneChamberAllDPsWanted)):
          oneChannelIDs=[]
          for mapIdx in range(len(OneChamberAllDPsWanted[channelIdx])):
@@ -592,7 +609,7 @@ def main():
                dpID   = result[0]
                dpNAME = result[1]
                
-            print( "chamber:", chamberList[chIdx], "channel", channelNameAsInMap[channelIdx], "ID", dpID, "DPNAME", dpNAME, "ALIAS", thisMapAlias )
+            verboseprint( "chamber:", chamberList[chIdx], "channel", channelNameAsInMap[channelIdx], "ID", dpID, "DPNAME", dpNAME, "ALIAS", thisMapAlias )
             #add to the four elements of OneChamberAllDPsWanted[channelIdx][mapIdx] also the ID
             fourElements = OneChamberAllDPsWanted[channelIdx][mapIdx]
             fourElements.append( dpID )
@@ -600,12 +617,12 @@ def main():
             #now OneChamberAllDPsWanted[channelIdx][mapIdx] is made by a list
             #[DP, ALIASSHORT, SINCE, BOOL for the since to use, DPID]
 
-      print("OneChamberAllDPsWanted with also IDs", OneChamberAllDPsWanted)
+      verboseprint("OneChamberAllDPsWanted with also IDs", OneChamberAllDPsWanted)
     
       AllChosenChamberAllDPsWanted.append(OneChamberAllDPsWanted)
 
    #OUT OF CHAMBER LOOP
-   #print("AllChosenChamberAllDPsWanted", AllChosenChamberAllDPsWanted)
+   #verboseprint("AllChosenChamberAllDPsWanted", AllChosenChamberAllDPsWanted)
      
    #--------------RETRIEVE DATA FOR HV--------------------------------------------
    #table CMS_GEM_PVSS_COND.FWCAENCHANNELA1515 for HV
@@ -779,8 +796,8 @@ def main():
             if monitorFlag == "LV":
                queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( '" + str(firstDateToCall) + "', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( '" + str(lastDateToCall) + "', 'YYYY-MM-DD HH24:MI:SS')"
 
-            print ( "OneChannelInfo", OneChannelInfo )
-            print( "query", queryAll )
+            verboseprint ( "OneChannelInfo", OneChannelInfo )
+            verboseprint( "query", queryAll )
 
 #            if monitorFlag == "HV":
 #               queryAll = "select CHANGE_DATE, ACTUAL_IMON, ACTUAL_VMON, ACTUAL_STATUS, ACTUAL_ISON, ACTUAL_TEMP, ACTUAL_IMONREAL from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( " + sta_period + ", 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( " + end_period + ", 'YYYY-MM-DD HH24:MI:SS')"
@@ -792,7 +809,7 @@ def main():
             cur.execute(queryAll)
             curAllData = cur
             for result in curAllData:
-               #print (result)
+               #verboseprint (result)
                dateElem = result[0]
                imonElem = result[1]
                vmonElem = result[2]
@@ -810,11 +827,11 @@ def main():
                   startTs = result[0]
                   
                tot_secondsDate = (dateElem - startTs).total_seconds()
-               #print("tot_secondsDate:", tot_secondsDate) #('tot_secondsDate:', 16512.532)
+               #verboseprint("tot_secondsDate:", tot_secondsDate) #('tot_secondsDate:', 16512.532)
 
                #convert dateElem in a usable format
                dateElemStr = str(dateElem)  #2017-04-01 00:00:32.439000 
-               #print("dateElemStr", dateElemStr)
+               #verboseprint("dateElemStr", dateElemStr)
                if (dateElemStr.find(".") != -1): #if dot found
                   dotIdx = dateElemStr.index(".")
                   dateNoMicro = dateElemStr[:dotIdx]
@@ -856,13 +873,13 @@ def main():
           
                contData = contData + 1
 
-            #print("imonData", imonData)
-            #print("vmonData", vmonData)
-            #print("smonData", smonData)
-            #print("isonData", isonData)
-            #print("tempData", tempData)
+            #verboseprint("imonData", imonData)
+            #verboseprint("vmonData", vmonData)
+            #verboseprint("smonData", smonData)
+            #verboseprint("isonData", isonData)
+            #verboseprint("tempData", tempData)
 
-            print( chamberList[chIdx]+" "+channelName[channelIdx] + " (Alias: " +aliasThisMap+"): Not sorted lists created: WAIT PLEASE!!")
+            verboseprint( chamberList[chIdx]+" "+channelName[channelIdx] + " (Alias: " +aliasThisMap+"): Not sorted lists created: WAIT PLEASE!!")
 
             #----------------SORT DATA-------------------------------------------------------
             #after collecting all data (we are inside the loop over chambers)
@@ -875,13 +892,13 @@ def main():
             isonData = sorted(isonData, key=lambda element: element[0])
             tempData = sorted(tempData, key=lambda element: element[0])
 
-            #print("imonData", imonData)
-            #print("vmonData", vmonData)
-            #print("smonData", smonData)
-            #print("isonData", isonData)
-            #print("tempData", tempData)
+            #verboseprint("imonData", imonData)
+            #verboseprint("vmonData", vmonData)
+            #verboseprint("smonData", smonData)
+            #verboseprint("isonData", isonData)
+            #verboseprint("tempData", tempData)
 
-            print("   Lists sorted: WAIT PLEASE!!")
+            verboseprint("   Lists sorted: WAIT PLEASE!!")
 
             #look for Vmon values greater than 1000V
             fileVolts = open("Over1000Volts.txt","a") 
@@ -899,7 +916,7 @@ def main():
  
          #----------------DUMP THE FIRST ELEMENT----------------------------------------------
 
-         #print("len imonSortList", len(imonSortList))
+         #verboseprint("len imonSortList", len(imonSortList))
          for idxElem in range(len(imonData)):
             secondAndThird = []
             secondAndThird.append(imonData[idxElem][1])
@@ -933,7 +950,7 @@ def main():
             tempData[idxElem] = secondAndThird
          
          #END OF LOOP ON MAPS: still inside loop on channels 
-         print("   Sorted lists filled!")
+         verboseprint("   Sorted lists filled!")
    
          #----------------CREATE HISTOGRAMS----------------------------------------------
          if monitorFlag == "HV":
@@ -1089,7 +1106,7 @@ def main():
                 firstDateBackInTime = refDate - timedelta(hours=12*(queryIdx+1))
                 lastDateBackInTime  = refDate - timedelta(hours=12*(queryIdx))
                 queryLastValue = "select CHANGE_DATE, ACTUAL_VMON from " + tableData + " where DPID = " + str(OneChannelInfo[mapIdx][4]) + " and CHANGE_DATE > to_date( '" + str(firstDateBackInTime) + "', 'YYYY-MM-DD HH24:MI:SS') and CHANGE_DATE < to_date( '" + str(lastDateBackInTime) + "', 'YYYY-MM-DD HH24:MI:SS')"
-                print ( queryLastValue )
+                verboseprint ( queryLastValue )
                 cur.execute(queryLastValue)
                 curLast = cur
                 lastValueList = []
@@ -1104,11 +1121,11 @@ def main():
                    lastSavedVoltage_value = lastValueList[-1][1]
                    foundLast = True
                    break
-            #print ( "LAST", lastSavedVoltage_value )
+            #verboseprint ( "LAST", lastSavedVoltage_value )
             startLast = start.replace("_", "-")
             startLastSplitList = startLast.split("-")
             lastDateStr = startLastSplitList[0]+"-"+startLastSplitList[1]+"-"+startLastSplitList[2]+" "+startLastSplitList[3]+":" +startLastSplitList[4]+":"+startLastSplitList[5]
-            print ( "lastDateStr", lastDateStr)
+            verboseprint ( "lastDateStr", lastDateStr)
             last_date = ROOT.TDatime( lastDateStr )
             lastDateConverted = last_date.Convert()            
             floatMicro_LAST = "0.000001"
@@ -1453,7 +1470,7 @@ def main():
             for smonIdx in range(len(smonData)): 
                #binary status        
                binStat = bin(int(smonData[smonIdx][1]))[2:] #to take away the 0b in front of the binary number
-               #print ("binStat:", binStat)
+               #verboseprint ("binStat:", binStat)
                lenStat = len(binStat)
                binStat = str(0) * (nBit - lenStat) + binStat	
                binStat = "0b"+binStat
@@ -1469,11 +1486,11 @@ def main():
                extensibleStat = ""
                if binStat == "0b000000000000": #these are binary numbers
                   StatusMeaning = "OFF"
-                  #print(StatusMeaning)
+                  #verboseprint(StatusMeaning)
                                                                           
                if binStat == "0b000000000001": #these are binary numbers
                   StatusMeaning = "ON"
-                  #print(StatusMeaning)
+                  #verboseprint(StatusMeaning)
     
                cutBinStr = binStat[13:]
                if cutBinStr == "0": #if I have OFF
@@ -1486,7 +1503,7 @@ def main():
                #I shift of one bit to delete the bit 0 from the string
                shift2 = binStat[:-1]
        
-               #print("binStat:", binStat, "shift2:", shift2 )
+               #verboseprint("binStat:", binStat, "shift2:", shift2 )
                if len(shift2) != 13:
                   print("ERROR: "+monitorFlag+" error in len of shift2. Len="+str(len(shift2))+"/13")
                   print("binStat:", binStat, "shift2:", shift2)
@@ -1890,7 +1907,7 @@ def main():
       maxValSmonMultig = maxValSmonMultig + 0.05*rangeSmon
       maxValTempMultig = maxValTempMultig + 0.05*rangeTemp
 
-      print ("chamberEndLoop", chamberList[chIdx] )
+      print ("chamber: ", chamberList[chIdx] )
 
       fontSize = 0.018
 
@@ -2028,9 +2045,9 @@ def main():
 
    print('\n-------------------------Output--------------------------------')
    print(fileName+ " has been created.")
-   print("It is organised in directories: to change directory use DIRNAME->cd()")
-   print('To draw a TH1 or a TGraph: OBJNAME->Draw()')
-   print('To scan the TTree use for example:\nHV_StatusTree2_2_Top_G3Bot->Scan("","","colsize=26")')
+   verboseprint("It is organised in directories: to change directory use DIRNAME->cd()")
+   verboseprint('To draw a TH1 or a TGraph: OBJNAME->Draw()')
+   verboseprint('To scan the TTree use for example:\nHV_StatusTree2_2_Top_G3Bot->Scan("","","colsize=26")')
    print("ALL MONITOR TIMES ARE IN UTC, DCS TIMES ARE IN CET")
 
 if __name__ == '__main__':
