@@ -126,7 +126,7 @@ for env in ["GEM_P5_DB_NAME_OFFLINE_MONITOR", "GEM_P5_DB_ACCOUNT_OFFLINE_MONITOR
     try:  
        os.environ[env]
     except KeyError: 
-       print "Please set the environment variable ", env
+       print "Please set the environment variable ", env, " setting it in your setup_DCS.sh file"
        exit(1)
 
 dbName = os.getenv("GEM_P5_DB_NAME_OFFLINE_MONITOR")
